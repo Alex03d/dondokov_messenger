@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>Dondokov AI Messenger</title>
+    <style>
+      :root {
+        --bg: #eef3f8;
+        --panel: #ffffff;
+        --line: #e6ebf2;
+        --text: #17212b;
+        --muted: #708499;
+        --accent: #3390ec;
+        --accent-soft: #eaf3ff;
+        --green: #dff5dd;
+        --danger: #ef4444;
+        --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      }
+
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        width: 100%;
+        overflow-x: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      body { overflow-y: auto; }
+      input, button { font: inherit; }
+      button { cursor: pointer; }
+
+      .app, .screen {
+        min-height: 100svh;
+        width: 100%;
+      }
+
+      .screen { display: none; }
+      .screen.active { display: block; }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+      }
+
+      .auth-shell {
+        min-height: 100svh;
+        padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .auth-card {
+        width: 100%;
+        max-width: 420px;
+        padding: 22px;
+      }
+
+      .auth-title {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.15;
+        font-weight: 800;
+      }
+
+      .auth-subtitle {
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.45;
+        margin-bottom: 18px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .field-label {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .field-input,
+      .search,
+      .composer-input {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        outline: none;
+        font-size: 18px;
+      }
+
+      .field-input {
+        min-height: 54px;
+        padding: 0 16px;
+      }
+
+      .field-input:focus,
+      .search:focus,
+      .composer-input:focus {
+        border-color: var(--accent);
+      }
+
+      .primary-btn,
+      .secondary-btn {
+        width: 100%;
+        min-height: 54px;
+        border-radius: 16px;
+        border: none;
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .primary-btn {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .secondary-btn {
+        background: #f6f8fb;
+        color: var(--text);
+        border: 1px solid var(--line);
+      }
+
+      .error-text {
+        margin-top: 10px;
+        color: var(--danger);
+        font-size: 14px;
+        line-height: 1.4;
+        min-height: 20px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(10px);
+      }
+
+      .topbar-main {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .topbar-title,
+      .chat-title {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.2;
+        font-weight: 800;
+      }
+
+      .topbar-subtitle,
+      .chat-subtitle,
+      .status-label {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.25;
+      }
+
+      .status-label {
+        margin-top: 0;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .logout-btn,
+      .back-btn {
+        border: none;
+        background: transparent;
+        color: var(--accent);
+        font-size: 16px;
+        line-height: 1;
+        min-width: 40px;
+        padding: 0;
+      }
+
+      .back-btn {
+        font-size: 28px;
+      }
+
+      .search-wrap {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .search {
+        height: 50px;
+        padding: 0 15px;
+        background: #f6f8fb;
+      }
+
+      .rooms {
+        padding-bottom: calc(18px + env(safe-area-inset-bottom));
+        background: var(--panel);
+      }
+
+      .room-item {
+        display: flex;
+        gap: 12px;
+        padding: 14px;
+        border-bottom: 1px solid #f0f3f7;
+        cursor: pointer;
+      }
+
+      .room-item:active,
+      .room-item.active {
+        background: var(--accent-soft);
+      }
+
+      .avatar {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+      }
+
+      .room-main { flex: 1; min-width: 0; }
+      .room-row-top, .room-row-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .room-name {
+        min-width: 0;
+        font-size: 18px;
+        line-height: 1.25;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .room-time,
+      .history-meta,
+      .message-meta {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .room-preview {
+        min-width: 0;
+        font-size: 16px;
+        line-height: 1.35;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-top: 4px;
+      }
+
+      .room-badge {
+        flex: 0 0 auto;
+        min-width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        padding: 0 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .room-empty,
+      .chat-empty {
+        padding: 24px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .chat-page {
+        min-height: 100svh;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .messages-wrap { flex: 1 1 auto; }
+
+      .messages {
+        padding: 14px 12px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background:
+          radial-gradient(circle at top left, rgba(51, 144, 236, 0.06), transparent 240px),
+          radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.05), transparent 260px),
+          var(--bg);
+      }
+
+      .day-divider {
+        align-self: center;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(0,0,0,0.04);
+        color: var(--muted);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+
+      .history-loader {
+        align-self: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .history-btn {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.96);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 9px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        box-shadow: var(--shadow);
+      }
+
+      .history-btn:disabled,
+      .primary-btn:disabled,
+      .send-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .message-row { display: flex; }
+      .message-row.own { justify-content: flex-end; }
+
+      .message-bubble {
+        max-width: 88%;
+        border-radius: 18px;
+        padding: 10px 12px 8px;
+        box-shadow: var(--shadow);
+        word-break: break-word;
+      }
+
+      .message-row.other .message-bubble {
+        background: #fff;
+        border-top-left-radius: 8px;
+      }
+
+      .message-row.own .message-bubble {
+        background: var(--green);
+        border-top-right-radius: 8px;
+      }
+
+      .message-author {
+        margin-bottom: 4px;
+        color: #4975a2;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .message-text {
+        white-space: pre-wrap;
+        font-size: 18px;
+        line-height: 1.42;
+      }
+
+      .message-meta {
+        margin-top: 6px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .composer {
+        flex: 0 0 auto;
+        background: rgba(255,255,255,0.98);
+        border-top: 1px solid var(--line);
+        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+      }
+
+      .composer-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .composer-input {
+        flex: 1;
+        min-width: 0;
+        height: 52px;
+        padding: 0 16px;
+      }
+
+      .send-btn {
+        flex: 0 0 auto;
+        width: 54px;
+        height: 54px;
+        border: none;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .send-icon {
+        font-size: 21px;
+        line-height: 1;
+        transform: translateX(1px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="authScreen" class="screen active">
+      <div class="auth-shell">
+        <div class="auth-card card">
+          <h1 class="auth-title">Messenger</h1>
+          <div class="auth-subtitle">Войди по email и паролю, который хранится в Cloudflare Pages Variables.</div>
+
+          <div class="field">
+            <label class="field-label" for="emailInput">Email</label>
+            <input id="emailInput" class="field-input" type="email" autocomplete="username" placeholder="name@example.com">
+          </div>
+
+          <div class="field">
+            <label class="field-label" for="passwordInput">Пароль</label>
+            <input id="passwordInput" class="field-input" type="password" autocomplete="current-password" placeholder="Пароль">
+          </div>
+
+          <button id="loginBtn" class="primary-btn" type="button">Войти</button>
+          <div id="authError" class="error-text"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="appScreen" class="screen">
+      <div id="app" class="app">
+        <section id="roomsScreen" class="screen active">
+          <div class="topbar">
+            <div class="topbar-main">
+              <div class="topbar-title">Messenger</div>
+              <div id="sidebarUser" class="topbar-subtitle"></div>
+            </div>
+            <button id="logoutBtn" class="logout-btn" type="button">Выйти</button>
+          </div>
+          <div class="search-wrap">
+            <input id="roomSearch" class="search" type="text" placeholder="Поиск чатов">
+          </div>
+          <div id="rooms" class="rooms"></div>
+        </section>
+
+        <section id="chatScreen" class="screen">
+          <div class="chat-page">
+            <div class="topbar">
+              <button id="backBtn" class="back-btn" type="button">‹</button>
+              <div class="topbar-main">
+                <div id="chatTitle" class="chat-title">Загрузка...</div>
+                <div id="chatSubtitle" class="chat-subtitle">Подключение...</div>
+              </div>
+              <div id="chatStatus" class="status-label">Синхронизация…</div>
+            </div>
+
+            <div class="messages-wrap">
+              <div id="messages" class="messages"></div>
+            </div>
+
+            <div class="composer">
+              <div class="composer-row">
+                <input id="messageInput" class="composer-input" type="text" inputmode="text" autocapitalize="sentences" autocomplete="off" placeholder="Сообщение">
+                <button id="sendBtn" class="send-btn" type="button" aria-label="Отправить">
+                  <span class="send-icon">➤</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const PAGE_SIZE = 40;
+      const AUTH_STORAGE_KEY = 'dondokov_chat_auth_v1';
+
+      let auth = null;
+      let currentUser = null;
+      let rooms = [];
+      let currentRoomId = null;
+      let refreshTimer = null;
+      let lastRenderSignature = '';
+      let currentMessages = [];
+      let totalMessagesCount = 0;
+      let hasMoreHistory = false;
+      let oldestLoadedCreatedAt = '';
+      let newestLoadedCreatedAt = '';
+      let isLoadingOlder = false;
+      let isLoadingNew = false;
+      let mobileChatOpen = false;
+
+      const authScreenEl = document.getElementById('authScreen');
+      const appScreenEl = document.getElementById('appScreen');
+      const emailInputEl = document.getElementById('emailInput');
+      const passwordInputEl = document.getElementById('passwordInput');
+      const loginBtnEl = document.getElementById('loginBtn');
+      const authErrorEl = document.getElementById('authError');
+      const logoutBtnEl = document.getElementById('logoutBtn');
+
+      const roomsScreenEl = document.getElementById('roomsScreen');
+      const chatScreenEl = document.getElementById('chatScreen');
+      const roomsEl = document.getElementById('rooms');
+      const roomSearchEl = document.getElementById('roomSearch');
+      const sidebarUserEl = document.getElementById('sidebarUser');
+      const chatTitleEl = document.getElementById('chatTitle');
+      const chatSubtitleEl = document.getElementById('chatSubtitle');
+      const chatStatusEl = document.getElementById('chatStatus');
+      const messagesEl = document.getElementById('messages');
+      const messageInputEl = document.getElementById('messageInput');
+      const sendBtnEl = document.getElementById('sendBtn');
+      const backBtnEl = document.getElementById('backBtn');
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function saveAuth(nextAuth) {
+        auth = nextAuth;
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth));
+      }
+
+      function loadSavedAuth() {
+        try {
+          const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+          auth = raw ? JSON.parse(raw) : null;
+        } catch (err) {
+          auth = null;
+        }
+      }
+
+      function clearAuth() {
+        auth = null;
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+
+      function authHeader() {
+        if (!auth || !auth.email || !auth.password) return '';
+        return 'Basic ' + btoa(`${auth.email}:${auth.password}`);
+      }
+
+      async function apiGet(action, params = {}) {
+        const url = new URL(`/api/${action}`, location.origin);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            url.searchParams.set(key, value);
+          }
+        });
+
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: authHeader()
+          }
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok === false) {
+          const message = result && result.error ? result.error : `GET ${action} failed`;
+          throw new Error(message);
+        }
+        return result;
+      }
+
+      async function apiPost(action, body = {}) {
+        const response = await fetch(`/api/${action}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: authHeader()
+          },
+          body: JSON.stringify(body)
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok === false) {
+          const message = result && result.error ? result.error : `POST ${action} failed`;
+          throw new Error(message);
+        }
+        return result;
+      }
+
+      function showAuthScreen() {
+        authScreenEl.classList.add('active');
+        appScreenEl.classList.remove('active');
+      }
+
+      function showAppScreen() {
+        authScreenEl.classList.remove('active');
+        appScreenEl.classList.add('active');
+      }
+
+      function setStatus(text) {
+        chatStatusEl.textContent = text;
+      }
+
+      function openChatScreen() {
+        mobileChatOpen = true;
+        roomsScreenEl.classList.remove('active');
+        chatScreenEl.classList.add('active');
+        requestAnimationFrame(scrollPageToBottom);
+      }
+
+      function openRoomsScreen() {
+        mobileChatOpen = false;
+        chatScreenEl.classList.remove('active');
+        roomsScreenEl.classList.add('active');
+        window.scrollTo(0, 0);
+      }
+
+      function isChatScreenOpen() {
+        return mobileChatOpen;
+      }
+
+      function sameDay(a, b) {
+        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+      }
+
+      function formatRoomTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        const now = new Date();
+        if (sameDay(now, date)) {
+          return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      }
+
+      function formatMessageTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function formatDayLabel(isoString) {
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        if (sameDay(date, today)) return 'Сегодня';
+        if (sameDay(date, yesterday)) return 'Вчера';
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      }
+
+      function getFilteredRooms() {
+        const query = roomSearchEl.value.trim().toLowerCase();
+        if (!query) return rooms;
+        return rooms.filter(room => room.title.toLowerCase().includes(query) || String(room.preview_text || '').toLowerCase().includes(query));
+      }
+
+      function getCurrentRoom() {
+        return rooms.find(room => room.room_id === currentRoomId) || null;
+      }
+
+      function updateSidebarUser() {
+        const email = currentUser && currentUser.email ? currentUser.email : '';
+        sidebarUserEl.textContent = email ? `Пользователь: ${email}` : '';
+      }
+
+      function updateHeader() {
+        const room = getCurrentRoom();
+        if (!room) {
+          chatTitleEl.textContent = 'Нет комнат';
+          chatSubtitleEl.textContent = 'Добавь доступы в лист room_members';
+          return;
+        }
+
+        chatTitleEl.textContent = room.title;
+        if (totalMessagesCount) {
+          const totalLabel = totalMessagesCount > currentMessages.length
+            ? `Сообщений: ${currentMessages.length} из ${totalMessagesCount}`
+            : `Сообщений: ${totalMessagesCount}`;
+          chatSubtitleEl.textContent = room.unread_count
+            ? `${totalLabel} · новых: ${room.unread_count}`
+            : totalLabel;
+        } else {
+          chatSubtitleEl.textContent = room.unread_count ? `Новых сообщений: ${room.unread_count}` : 'Сообщений пока нет';
+        }
+      }
+
+      function renderRooms() {
+        const list = getFilteredRooms();
+        if (!list.length) {
+          roomsEl.innerHTML = '<div class="room-empty">Чаты не найдены</div>';
+          return;
+        }
+
+        roomsEl.innerHTML = list.map(room => `
+          <div class="room-item ${room.room_id === currentRoomId ? 'active' : ''}" data-room-id="${escapeHtml(room.room_id)}">
+            <div class="avatar" style="background:${escapeHtml(room.avatar_color || '#5b8def')}">${escapeHtml(room.avatar_label || '#')}</div>
+            <div class="room-main">
+              <div class="room-row-top">
+                <div class="room-name">${escapeHtml(room.title)}</div>
+                <div class="room-time">${escapeHtml(formatRoomTime(room.last_message_at))}</div>
+              </div>
+              <div class="room-row-bottom">
+                <div class="room-preview">${escapeHtml(room.preview_text || 'Пока нет сообщений')}</div>
+                ${room.unread_count ? `<div class="room-badge">${room.unread_count > 99 ? '99+' : room.unread_count}</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        roomsEl.querySelectorAll('.room-item').forEach(node => {
+          node.addEventListener('click', () => switchRoom(node.getAttribute('data-room-id')));
+        });
+      }
+
+      function getMessageKey(message) {
+        return [message.id || '', message.client_id || '', message.sender || '', message.created_at || '', message.text || ''].join('|');
+      }
+
+      function mergeMessageArrays(base, incoming) {
+        const map = new Map();
+        [...base, ...incoming].forEach(message => {
+          map.set(getMessageKey(message), message);
+        });
+        return Array.from(map.values()).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      }
+
+      function syncMessagePointers() {
+        oldestLoadedCreatedAt = currentMessages.length ? currentMessages[0].created_at : '';
+        newestLoadedCreatedAt = currentMessages.length ? currentMessages[currentMessages.length - 1].created_at : '';
+        hasMoreHistory = totalMessagesCount > currentMessages.length;
+      }
+
+      function renderMessages(forceScroll = false) {
+        const signature = JSON.stringify({
+          ids: currentMessages.map(msg => [msg.id, msg.client_id, msg.text, msg.created_at, msg.edited_at]),
+          hasMoreHistory,
+          totalMessagesCount,
+          isLoadingOlder
+        });
+
+        if (!forceScroll && signature === lastRenderSignature) return;
+        lastRenderSignature = signature;
+
+        if (!currentMessages.length) {
+          messagesEl.innerHTML = '<div class="chat-empty">В этом чате пока нет сообщений</div>';
+          updateHeader();
+          return;
+        }
+
+        let html = '';
+        let previousDayLabel = '';
+        let previousSender = '';
+
+        if (hasMoreHistory || totalMessagesCount) {
+          const counterLabel = totalMessagesCount > currentMessages.length
+            ? `Показано ${currentMessages.length} из ${totalMessagesCount}`
+            : `Сообщений: ${totalMessagesCount}`;
+
+          html += `
+            <div class="history-loader">
+              ${hasMoreHistory ? `
+                <button id="loadOlderBtn" class="history-btn" ${isLoadingOlder ? 'disabled' : ''}>
+                  ${isLoadingOlder ? 'Загрузка...' : 'Загрузить ещё'}
+                </button>
+              ` : ''}
+              <div class="history-meta">${escapeHtml(counterLabel)}</div>
+            </div>
+          `;
+        }
+
+        currentMessages.forEach(msg => {
+          const own = currentUser && msg.sender === currentUser.email;
+          const dayLabel = formatDayLabel(msg.created_at);
+          const showAuthor = !own && previousSender !== msg.sender;
+
+          if (dayLabel !== previousDayLabel) {
+            html += `<div class="day-divider">${escapeHtml(dayLabel)}</div>`;
+            previousDayLabel = dayLabel;
+            previousSender = '';
+          }
+
+          html += `
+            <div class="message-row ${own ? 'own' : 'other'}">
+              <div class="message-bubble">
+                ${showAuthor ? `<div class="message-author">${escapeHtml(msg.sender_name || msg.sender)}</div>` : ''}
+                <div class="message-text">${escapeHtml(msg.text)}</div>
+                <div class="message-meta">
+                  ${msg.edited_at ? '<span>изменено</span>' : ''}
+                  <span>${escapeHtml(formatMessageTime(msg.created_at))}</span>
+                </div>
+              </div>
+            </div>
+          `;
+
+          previousSender = msg.sender;
+        });
+
+        messagesEl.innerHTML = html;
+        updateHeader();
+
+        const loadOlderBtn = document.getElementById('loadOlderBtn');
+        if (loadOlderBtn) loadOlderBtn.addEventListener('click', loadOlderMessages);
+
+        if (forceScroll) requestAnimationFrame(scrollPageToBottom);
+      }
+
+      function scrollPageToBottom() {
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+      }
+
+      function clearCurrentRoomUnreadLocally() {
+        rooms = rooms.map(room => room.room_id !== currentRoomId ? room : { ...room, unread_count: 0 });
+        renderRooms();
+        updateHeader();
+      }
+
+      async function markRoomAsReadIfNeeded() {
+        const room = getCurrentRoom();
+        if (!room || !room.unread_count) return;
+        try {
+          await apiPost('markRoomAsRead', { roomId: currentRoomId });
+          clearCurrentRoomUnreadLocally();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      async function markRoomAsReadDirect() {
+        if (!currentRoomId) return;
+        try {
+          await apiPost('markRoomAsRead', { roomId: currentRoomId });
+          clearCurrentRoomUnreadLocally();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      function resetMessageState() {
+        currentMessages = [];
+        totalMessagesCount = 0;
+        hasMoreHistory = false;
+        oldestLoadedCreatedAt = '';
+        newestLoadedCreatedAt = '';
+        isLoadingOlder = false;
+        isLoadingNew = false;
+        lastRenderSignature = '';
+      }
+
+      async function loadInitialMessages(forceScroll = true) {
+        if (!currentRoomId) return;
+        setStatus('Загрузка истории...');
+        try {
+          const result = await apiGet('getMessagesPage', {
+            roomId: currentRoomId,
+            limit: PAGE_SIZE,
+            before: ''
+          });
+          const page = result.data || {};
+          currentMessages = page.items || [];
+          totalMessagesCount = page.total_count || currentMessages.length;
+          syncMessagePointers();
+          renderMessages(forceScroll);
+          setStatus('Подключено');
+          await markRoomAsReadIfNeeded();
+        } catch (err) {
+          console.error(err);
+          setStatus('Ошибка загрузки сообщений');
+        }
+      }
+
+      async function loadOlderMessages() {
+        if (!currentRoomId || !hasMoreHistory || isLoadingOlder || !oldestLoadedCreatedAt) return;
+        isLoadingOlder = true;
+        renderMessages(false);
+
+        try {
+          const result = await apiGet('getMessagesPage', {
+            roomId: currentRoomId,
+            limit: PAGE_SIZE,
+            before: oldestLoadedCreatedAt
+          });
+          const page = result.data || {};
+          const olderItems = page.items || [];
+          currentMessages = mergeMessageArrays(olderItems, currentMessages);
+          totalMessagesCount = page.total_count || totalMessagesCount;
+          syncMessagePointers();
+          isLoadingOlder = false;
+          renderMessages(false);
+        } catch (err) {
+          console.error(err);
+          isLoadingOlder = false;
+          renderMessages(false);
+          setStatus('Ошибка загрузки истории');
+        }
+      }
+
+      async function loadNewMessages() {
+        if (!currentRoomId || !newestLoadedCreatedAt || isLoadingNew) return;
+        isLoadingNew = true;
+
+        try {
+          const result = await apiGet('getNewMessages', {
+            roomId: currentRoomId,
+            after: newestLoadedCreatedAt
+          });
+          const incoming = (result.data && result.data.items) || [];
+          const previousLength = currentMessages.length;
+          if (incoming.length) {
+            currentMessages = mergeMessageArrays(currentMessages, incoming);
+            const addedCount = currentMessages.length - previousLength;
+            if (addedCount > 0) {
+              totalMessagesCount += addedCount;
+              syncMessagePointers();
+              renderMessages(false);
+              const incomingFromOthers = incoming.some(msg => !currentUser || msg.sender !== currentUser.email);
+              if (incomingFromOthers && isChatScreenOpen()) {
+                await markRoomAsReadDirect();
+                scrollPageToBottom();
+              }
+            }
+          }
+          isLoadingNew = false;
+          setStatus('Подключено');
+        } catch (err) {
+          console.error(err);
+          isLoadingNew = false;
+          setStatus('Ошибка синхронизации');
+        }
+      }
+
+      function applyAppState(state, forceMessagesReload) {
+        currentUser = state.currentUser || null;
+        const previousRoomId = currentRoomId;
+        rooms = state.rooms || [];
+        updateSidebarUser();
+
+        if (!rooms.length) {
+          currentRoomId = null;
+          resetMessageState();
+          renderRooms();
+          messagesEl.innerHTML = '<div class="chat-empty">Нет доступных комнат</div>';
+          updateHeader();
+          setStatus('Нет данных');
+          return;
+        }
+
+        if (!currentRoomId || !rooms.some(room => room.room_id === currentRoomId)) {
+          currentRoomId = previousRoomId && rooms.some(room => room.room_id === previousRoomId)
+            ? previousRoomId
+            : rooms[0].room_id;
+          forceMessagesReload = true;
+        }
+
+        renderRooms();
+        updateHeader();
+
+        if (forceMessagesReload) {
+          resetMessageState();
+          loadInitialMessages(true);
+        }
+      }
+
+      async function loadAppState(forceMessagesReload = false) {
+        try {
+          const result = await apiGet('getAppState');
+          applyAppState(result.data, forceMessagesReload);
+        } catch (err) {
+          console.error(err);
+          if (/Unauthorized|Invalid credentials|Missing authorization/i.test(String(err.message || ''))) {
+            handleLogout();
+            authErrorEl.textContent = 'Сессия истекла. Войди снова.';
+            return;
+          }
+          setStatus('Ошибка загрузки приложения');
+        }
+      }
+
+      function switchRoom(roomId) {
+        if (!roomId) return;
+        const sameRoom = roomId === currentRoomId;
+        if (sameRoom) {
+          openChatScreen();
+          markRoomAsReadIfNeeded();
+          return;
+        }
+        currentRoomId = roomId;
+        openChatScreen();
+        resetMessageState();
+        updateHeader();
+        renderRooms();
+        messagesEl.innerHTML = '<div class="chat-empty">Загрузка сообщений...</div>';
+        loadInitialMessages(true);
+      }
+
+      function clearInput() {
+        messageInputEl.value = '';
+      }
+
+      async function handleSend() {
+        const text = messageInputEl.value.trim();
+        if (!text || !currentRoomId) return;
+        sendBtnEl.disabled = true;
+        setStatus('Отправка...');
+
+        try {
+          const result = await apiPost('sendMessage', {
+            roomId: currentRoomId,
+            text,
+            clientId: `client-${Date.now()}`
+          });
+
+          clearInput();
+          sendBtnEl.disabled = false;
+          if (result && result.data && result.data.message) {
+            const previousLength = currentMessages.length;
+            currentMessages = mergeMessageArrays(currentMessages, [result.data.message]);
+            const addedCount = currentMessages.length - previousLength;
+            if (addedCount > 0) totalMessagesCount += addedCount;
+            syncMessagePointers();
+            renderMessages(true);
+          } else {
+            await loadInitialMessages(true);
+          }
+          setStatus('Сообщение отправлено');
+          loadAppState(false);
+        } catch (err) {
+          console.error(err);
+          sendBtnEl.disabled = false;
+          setStatus('Ошибка отправки');
+        }
+      }
+
+      function startAutoRefresh() {
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(() => {
+          loadAppState(false);
+          loadNewMessages();
+        }, 3500);
+      }
+
+      function stopAutoRefresh() {
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+          refreshTimer = null;
+        }
+      }
+
+      async function handleLogin() {
+        const email = emailInputEl.value.trim().toLowerCase();
+        const password = passwordInputEl.value;
+
+        if (!email || !password) {
+          authErrorEl.textContent = 'Введи email и пароль.';
+          return;
+        }
+
+        loginBtnEl.disabled = true;
+        authErrorEl.textContent = '';
+        saveAuth({ email, password });
+
+        try {
+          await loadAppState(true);
+          showAppScreen();
+          openRoomsScreen();
+          startAutoRefresh();
+        } catch (err) {
+          console.error(err);
+          clearAuth();
+          authErrorEl.textContent = 'Не удалось войти.';
+          showAuthScreen();
+        } finally {
+          loginBtnEl.disabled = false;
+        }
+      }
+
+      function handleLogout() {
+        stopAutoRefresh();
+        clearAuth();
+        currentUser = null;
+        rooms = [];
+        currentRoomId = null;
+        resetMessageState();
+        passwordInputEl.value = '';
+        showAuthScreen();
+      }
+
+      loginBtnEl.addEventListener('click', handleLogin);
+      passwordInputEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') handleLogin();
+      });
+      logoutBtnEl.addEventListener('click', handleLogout);
+      roomSearchEl.addEventListener('input', renderRooms);
+      sendBtnEl.addEventListener('click', handleSend);
+      messageInputEl.addEventListener('focus', () => {
+        setTimeout(scrollPageToBottom, 150);
+        setTimeout(scrollPageToBottom, 350);
+      });
+      messageInputEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handleSend();
+        }
+      });
+      backBtnEl.addEventListener('click', openRoomsScreen);
+
+      loadSavedAuth();
+      if (auth && auth.email && auth.password) {
+        emailInputEl.value = auth.email;
+        showAppScreen();
+        loadAppState(true)
+          .then(() => {
+            openRoomsScreen();
+            startAutoRefresh();
+          })
+          .catch(err => {
+            console.error(err);
+            handleLogout();
+            authErrorEl.textContent = 'Вход нужно выполнить заново.';
+          });
+      } else {
+        showAuthScreen();
+      }
+    </script>
+  </body>
+</html>
