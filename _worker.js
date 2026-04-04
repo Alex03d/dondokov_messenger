@@ -121,19 +121,26 @@ async function forwardToAppsScript(request, env, action, userEmail) {
   return json({ ok: false, error: 'Method not allowed' }, 405);
 }
 
-export async function onRequest(context) {
-  const { request, env, params } = context;
-  const action = Array.isArray(params.path) ? params.path.join('/') : (params.path || '');
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
 
-  const credentials = parseBasicAuth(request.headers.get('Authorization'));
-  if (!credentials) {
-    return json({ ok: false, error: 'Unauthorized' }, 401);
+    if (url.pathname.startsWith('/api/')) {
+      const action = url.pathname.replace(/^\/api\//, '');
+
+      const credentials = parseBasicAuth(request.headers.get('Authorization'));
+      if (!credentials) {
+        return json({ ok: false, error: 'Unauthorized' }, 401);
+      }
+
+      const users = getAllowedUsers(env);
+      if (!users[credentials.email] || users[credentials.email] !== credentials.password) {
+        return json({ ok: false, error: 'Invalid credentials' }, 401);
+      }
+
+      return forwardToAppsScript(request, env, action, credentials.email);
+    }
+
+    return env.ASSETS.fetch(request);
   }
-
-  const users = getAllowedUsers(env);
-  if (!users[credentials.email] || users[credentials.email] !== credentials.password) {
-    return json({ ok: false, error: 'Invalid credentials' }, 401);
-  }
-
-  return forwardToAppsScript(request, env, action, credentials.email);
-}
+};
