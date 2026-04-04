@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "alexenger",
+  "main": "_worker.js",
+  "compatibility_date": "2026-04-04",
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS"
+  },
+  "secrets": {
+    "required": [
+      "GAS_WEBAPP_URL",
+      "CHAT_SHARED_SECRET",
+      "CHAT_USERS_JSON"
+    ]
+  }
+}
