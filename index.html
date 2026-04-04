@@ -413,7 +413,30 @@
         margin-top: 6px;
         display: flex;
         justify-content: flex-end;
+        align-items: center;
         gap: 6px;
+      }
+
+      .message-row.own.pending .message-bubble {
+        opacity: 0.72;
+      }
+
+      .message-row.own.failed .message-bubble {
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.28), var(--shadow);
+      }
+
+      .message-row.own.failed .message-meta {
+        color: var(--danger);
+      }
+
+      .retry-btn {
+        border: none;
+        background: transparent;
+        color: var(--danger);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 0;
+        line-height: 1;
       }
 
       .composer {
@@ -929,7 +952,7 @@
 
       function renderMessages(forceScroll = false) {
         const signature = JSON.stringify({
-          ids: currentMessages.map(msg => [msg.id, msg.client_id, msg.text, msg.created_at, msg.edited_at]),
+          ids: currentMessages.map(msg => [msg.id, msg.client_id, msg.text, msg.created_at, msg.edited_at, msg.pending, msg.failed]),
           hasMoreHistory,
           totalMessagesCount,
           isLoadingOlder
@@ -969,6 +992,7 @@
           const own = currentUser && msg.sender === currentUser.email;
           const dayLabel = formatDayLabel(msg.created_at);
           const showAuthor = !own && previousSender !== msg.sender;
+          const stateClass = msg.failed ? 'failed' : (msg.pending ? 'pending' : '');
 
           if (dayLabel !== previousDayLabel) {
             html += `<div class="day-divider">${escapeHtml(dayLabel)}</div>`;
@@ -977,13 +1001,16 @@
           }
 
           html += `
-            <div class="message-row ${own ? 'own' : 'other'}">
+            <div class="message-row ${own ? 'own' : 'other'} ${stateClass}">
               <div class="message-bubble">
                 ${showAuthor ? `<div class="message-author">${escapeHtml(msg.sender_name || msg.sender)}</div>` : ''}
                 <div class="message-text">${escapeHtml(msg.text)}</div>
                 <div class="message-meta">
-                  ${msg.edited_at ? '<span>изменено</span>' : ''}
-                  <span>${escapeHtml(formatMessageTime(msg.created_at))}</span>
+                  ${msg.failed
+                    ? `<span>Не отправлено</span><button class="retry-btn" type="button" data-retry-client-id="${escapeHtml(msg.client_id || '')}">Повторить</button>`
+                    : msg.pending
+                      ? '<span>Отправляется…</span>'
+                      : `${msg.edited_at ? '<span>изменено</span>' : ''}<span>${escapeHtml(formatMessageTime(msg.created_at))}</span>`}
                 </div>
               </div>
             </div>
@@ -1219,38 +1246,97 @@
         messageInputEl.value = '';
       }
 
-      async function handleSend() {
-        const text = messageInputEl.value.trim();
-        if (!text || !currentRoomId) return;
+      function createOptimisticMessage(text, roomId) {
+        const clientId = `client-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        return {
+          id: '',
+          client_id: clientId,
+          room_id: roomId,
+          sender: (currentUser && currentUser.email) || '',
+          sender_name: (currentUser && (currentUser.name || currentUser.email)) || 'Я',
+          text,
+          created_at: new Date().toISOString(),
+          edited_at: '',
+          pending: true,
+          failed: false
+        };
+      }
+
+      function updateOptimisticMessage(clientId, patch) {
+        let found = false;
+        currentMessages = currentMessages.map(message => {
+          if (message.client_id !== clientId) return message;
+          found = true;
+          return { ...message, ...patch };
+        });
+        if (found) {
+          syncMessagePointers();
+          renderMessages(true);
+        }
+        return found;
+      }
+
+      function replaceOptimisticMessage(clientId, nextMessage) {
+        let replaced = false;
+        currentMessages = currentMessages.map(message => {
+          if (message.client_id !== clientId) return message;
+          replaced = true;
+          return { ...nextMessage, pending: false, failed: false };
+        });
+
+        if (!replaced) {
+          currentMessages = mergeMessageArrays(currentMessages, [{ ...nextMessage, pending: false, failed: false }]);
+          totalMessagesCount += 1;
+        }
+
+        syncMessagePointers();
+        renderMessages(true);
+      }
+
+      async function sendMessageWithOptimistic(message) {
+        if (!message || !message.room_id || !message.text) return;
         sendBtnEl.disabled = true;
         setStatus('Отправка...');
 
         try {
           const result = await apiPost('sendMessage', {
-            roomId: currentRoomId,
-            text,
-            clientId: `client-${Date.now()}`
+            roomId: message.room_id,
+            text: message.text,
+            clientId: message.client_id
           });
 
-          clearInput();
           sendBtnEl.disabled = false;
+
           if (result && result.data && result.data.message) {
-            const previousLength = currentMessages.length;
-            currentMessages = mergeMessageArrays(currentMessages, [result.data.message]);
-            const addedCount = currentMessages.length - previousLength;
-            if (addedCount > 0) totalMessagesCount += addedCount;
-            syncMessagePointers();
-            renderMessages(true);
+            replaceOptimisticMessage(message.client_id, result.data.message);
           } else {
+            updateOptimisticMessage(message.client_id, { pending: false, failed: false });
             await loadInitialMessages(true);
           }
+
           setStatus('Сообщение отправлено');
           await loadAppState(false);
         } catch (err) {
           console.error(err);
           sendBtnEl.disabled = false;
+          updateOptimisticMessage(message.client_id, { pending: false, failed: true });
           setStatus('Ошибка отправки');
         }
+      }
+
+      async function handleSend() {
+        const text = messageInputEl.value.trim();
+        if (!text || !currentRoomId) return;
+
+        const optimisticMessage = createOptimisticMessage(text, currentRoomId);
+        clearInput();
+
+        currentMessages = mergeMessageArrays(currentMessages, [optimisticMessage]);
+        totalMessagesCount += 1;
+        syncMessagePointers();
+        renderMessages(true);
+
+        await sendMessageWithOptimistic(optimisticMessage);
       }
 
       async function safeRefresh() {
@@ -1337,6 +1423,22 @@
       logoutBtnEl.addEventListener('click', () => handleLogout());
       roomSearchEl.addEventListener('input', renderRooms);
       sendBtnEl.addEventListener('click', handleSend);
+      messagesEl.addEventListener('click', event => {
+        const retryBtn = event.target.closest('[data-retry-client-id]');
+        if (!retryBtn) return;
+        const clientId = retryBtn.getAttribute('data-retry-client-id');
+        if (!clientId || sendBtnEl.disabled) return;
+
+        const failedMessage = currentMessages.find(message => message.client_id === clientId && message.failed);
+        if (!failedMessage) return;
+
+        updateOptimisticMessage(clientId, {
+          pending: true,
+          failed: false,
+          created_at: new Date().toISOString()
+        });
+        sendMessageWithOptimistic(failedMessage);
+      });
       messageInputEl.addEventListener('focus', () => {
         setTimeout(scrollPageToBottom, 150);
         setTimeout(scrollPageToBottom, 350);
