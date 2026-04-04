@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-    <title>Dondokov AI Messenger</title>
+    <title>Dondokov Messenger</title>
     <style>
       :root {
         --bg: #eef3f8;
@@ -198,6 +198,22 @@
 
       .back-btn {
         font-size: 28px;
+      }
+
+      .notify-btn {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--accent);
+        border-radius: 999px;
+        min-width: 40px;
+        height: 40px;
+        padding: 0 12px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .notify-btn.is-on {
+        background: var(--accent-soft);
       }
 
       .search-wrap {
@@ -471,6 +487,7 @@
               <div class="topbar-title">Messenger</div>
               <div id="sidebarUser" class="topbar-subtitle"></div>
             </div>
+            <button id="notifyBtn" class="notify-btn" type="button" title="Включить уведомления">🔔</button>
             <button id="logoutBtn" class="logout-btn" type="button">Выйти</button>
           </div>
           <div class="search-wrap">
@@ -510,6 +527,7 @@
     <script>
       const PAGE_SIZE = 40;
       const AUTH_STORAGE_KEY = 'dondokov_chat_auth_v1';
+      const BASE_PAGE_TITLE = 'Dondokov Messenger';
 
       let auth = null;
       let currentUser = null;
@@ -525,6 +543,9 @@
       let isLoadingOlder = false;
       let isLoadingNew = false;
       let mobileChatOpen = false;
+      let hasLoadedRoomsOnce = false;
+      let audioCtx = null;
+      let authFailCount = 0;
 
       const authScreenEl = document.getElementById('authScreen');
       const appScreenEl = document.getElementById('appScreen');
@@ -533,6 +554,7 @@
       const loginBtnEl = document.getElementById('loginBtn');
       const authErrorEl = document.getElementById('authError');
       const logoutBtnEl = document.getElementById('logoutBtn');
+      const notifyBtnEl = document.getElementById('notifyBtn');
 
       const roomsScreenEl = document.getElementById('roomsScreen');
       const chatScreenEl = document.getElementById('chatScreen');
@@ -580,6 +602,11 @@
         return 'Basic ' + btoa(`${auth.email}:${auth.password}`);
       }
 
+      function isAuthError(err) {
+        const msg = String(err?.message || '');
+        return err?.status === 401 || /Unauthorized|Invalid credentials|Missing authorization|Expired auth signature|Invalid auth signature/i.test(msg);
+      }
+
       async function apiGet(action, params = {}) {
         const url = new URL(`/api/${action}`, location.origin);
         Object.entries(params).forEach(([key, value]) => {
@@ -590,15 +617,16 @@
 
         const response = await fetch(url.toString(), {
           method: 'GET',
-          headers: {
-            Authorization: authHeader()
-          }
+          headers: { Authorization: authHeader() },
+          cache: 'no-store'
         });
 
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.ok === false) {
-          const message = result && result.error ? result.error : `GET ${action} failed`;
-          throw new Error(message);
+          const err = new Error(result && result.error ? result.error : `GET ${action} failed`);
+          err.status = response.status;
+          err.payload = result;
+          throw err;
         }
         return result;
       }
@@ -610,13 +638,16 @@
             'Content-Type': 'application/json',
             Authorization: authHeader()
           },
+          cache: 'no-store',
           body: JSON.stringify(body)
         });
 
         const result = await response.json().catch(() => ({}));
         if (!response.ok || result.ok === false) {
-          const message = result && result.error ? result.error : `POST ${action} failed`;
-          throw new Error(message);
+          const err = new Error(result && result.error ? result.error : `POST ${action} failed`);
+          err.status = response.status;
+          err.payload = result;
+          throw err;
         }
         return result;
       }
@@ -694,6 +725,134 @@
 
       function getCurrentRoom() {
         return rooms.find(room => room.room_id === currentRoomId) || null;
+      }
+
+      function getTotalUnreadCount(list = rooms) {
+        return (list || []).reduce((sum, room) => sum + (Number(room.unread_count) || 0), 0);
+      }
+
+      function updateDocumentTitle() {
+        const unread = getTotalUnreadCount();
+        document.title = unread > 0 ? `(${unread}) ${BASE_PAGE_TITLE}` : BASE_PAGE_TITLE;
+      }
+
+      function updateNotifyButton() {
+        if (!notifyBtnEl) return;
+
+        if (!('Notification' in window)) {
+          notifyBtnEl.textContent = '🔕';
+          notifyBtnEl.disabled = true;
+          notifyBtnEl.title = 'Уведомления не поддерживаются';
+          return;
+        }
+
+        if (Notification.permission === 'granted') {
+          notifyBtnEl.textContent = '🔔';
+          notifyBtnEl.classList.add('is-on');
+          notifyBtnEl.title = 'Уведомления включены';
+          return;
+        }
+
+        if (Notification.permission === 'denied') {
+          notifyBtnEl.textContent = '🔕';
+          notifyBtnEl.classList.remove('is-on');
+          notifyBtnEl.title = 'Уведомления заблокированы в браузере';
+          return;
+        }
+
+        notifyBtnEl.textContent = '🔔';
+        notifyBtnEl.classList.remove('is-on');
+        notifyBtnEl.title = 'Включить уведомления';
+      }
+
+      async function requestNotifications() {
+        if (!('Notification' in window)) {
+          alert('Этот браузер не поддерживает системные уведомления.');
+          return;
+        }
+
+        if (Notification.permission === 'granted') {
+          ensureAudioReady();
+          updateNotifyButton();
+          return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          ensureAudioReady();
+        }
+        updateNotifyButton();
+      }
+
+      function ensureAudioReady() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+
+        if (!audioCtx) {
+          audioCtx = new AudioCtx();
+        }
+
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+      }
+
+      function playIncomingSound() {
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, now);
+
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.2);
+      }
+
+      function showSystemNotification(title, body, tag) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+
+        try {
+          new Notification(title, {
+            body: body || 'Открой чат',
+            tag: tag || 'chat-notification'
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      function notifyUnreadRoomDelta(prevRooms, nextRooms) {
+        const prevMap = new Map((prevRooms || []).map(room => [room.room_id, Number(room.unread_count) || 0]));
+
+        (nextRooms || []).forEach(room => {
+          const prevUnread = prevMap.get(room.room_id) || 0;
+          const nextUnread = Number(room.unread_count) || 0;
+
+          if (room.room_id === currentRoomId && isChatScreenOpen()) return;
+
+          if (nextUnread > prevUnread) {
+            playIncomingSound();
+
+            if (document.hidden) {
+              showSystemNotification(
+                `Новое сообщение · ${room.title}`,
+                room.preview_text || `${nextUnread - prevUnread} новых сообщений`,
+                `room-${room.room_id}`
+              );
+            }
+          }
+        });
       }
 
       function updateSidebarUser() {
@@ -848,6 +1007,7 @@
 
       function clearCurrentRoomUnreadLocally() {
         rooms = rooms.map(room => room.room_id !== currentRoomId ? room : { ...room, unread_count: 0 });
+        updateDocumentTitle();
         renderRooms();
         updateHeader();
       }
@@ -903,6 +1063,7 @@
         } catch (err) {
           console.error(err);
           setStatus('Ошибка загрузки сообщений');
+          throw err;
         }
       }
 
@@ -950,10 +1111,25 @@
               totalMessagesCount += addedCount;
               syncMessagePointers();
               renderMessages(false);
-              const incomingFromOthers = incoming.some(msg => !currentUser || msg.sender !== currentUser.email);
-              if (incomingFromOthers && isChatScreenOpen()) {
-                await markRoomAsReadDirect();
-                scrollPageToBottom();
+
+              const incomingFromOthers = incoming.filter(msg => !currentUser || msg.sender !== currentUser.email);
+              if (incomingFromOthers.length) {
+                playIncomingSound();
+
+                if (document.hidden) {
+                  const last = incomingFromOthers[incomingFromOthers.length - 1];
+                  const room = getCurrentRoom();
+                  showSystemNotification(
+                    `Новое сообщение · ${(room && room.title) || 'Чат'}`,
+                    last.text || 'Открой чат',
+                    `room-${currentRoomId}`
+                  );
+                }
+
+                if (isChatScreenOpen()) {
+                  await markRoomAsReadDirect();
+                  scrollPageToBottom();
+                }
               }
             }
           }
@@ -962,6 +1138,7 @@
         } catch (err) {
           console.error(err);
           isLoadingNew = false;
+          if (isAuthError(err)) throw err;
           setStatus('Ошибка синхронизации');
         }
       }
@@ -969,7 +1146,16 @@
       function applyAppState(state, forceMessagesReload) {
         currentUser = state.currentUser || null;
         const previousRoomId = currentRoomId;
-        rooms = state.rooms || [];
+        const previousRooms = rooms;
+        const nextRooms = state.rooms || [];
+
+        if (hasLoadedRoomsOnce) {
+          notifyUnreadRoomDelta(previousRooms, nextRooms);
+        }
+
+        rooms = nextRooms;
+        hasLoadedRoomsOnce = true;
+        updateDocumentTitle();
         updateSidebarUser();
 
         if (!rooms.length) {
@@ -994,23 +1180,22 @@
 
         if (forceMessagesReload) {
           resetMessageState();
-          loadInitialMessages(true);
+          loadInitialMessages(true).catch(console.error);
         }
       }
 
       async function loadAppState(forceMessagesReload = false) {
-        try {
-          const result = await apiGet('getAppState');
-          applyAppState(result.data, forceMessagesReload);
-        } catch (err) {
-          console.error(err);
-          if (/Unauthorized|Invalid credentials|Missing authorization/i.test(String(err.message || ''))) {
-            handleLogout();
-            authErrorEl.textContent = 'Сессия истекла. Войди снова.';
-            return;
-          }
-          setStatus('Ошибка загрузки приложения');
+        const result = await apiGet('getAppState');
+
+        if (!result || !result.data || !result.data.currentUser || !Array.isArray(result.data.rooms)) {
+          const err = new Error('Invalid API response');
+          err.status = 500;
+          throw err;
         }
+
+        authFailCount = 0;
+        applyAppState(result.data, forceMessagesReload);
+        return result.data;
       }
 
       function switchRoom(roomId) {
@@ -1027,7 +1212,7 @@
         updateHeader();
         renderRooms();
         messagesEl.innerHTML = '<div class="chat-empty">Загрузка сообщений...</div>';
-        loadInitialMessages(true);
+        loadInitialMessages(true).catch(console.error);
       }
 
       function clearInput() {
@@ -1060,7 +1245,7 @@
             await loadInitialMessages(true);
           }
           setStatus('Сообщение отправлено');
-          loadAppState(false);
+          await loadAppState(false);
         } catch (err) {
           console.error(err);
           sendBtnEl.disabled = false;
@@ -1068,12 +1253,30 @@
         }
       }
 
+      async function safeRefresh() {
+        try {
+          await loadAppState(false);
+          await loadNewMessages();
+        } catch (err) {
+          console.error(err);
+
+          if (isAuthError(err)) {
+            authFailCount += 1;
+            if (authFailCount >= 2) {
+              handleLogout('Сессия истекла. Войди снова.');
+              return;
+            }
+            setStatus('Проблема авторизации, повтор...');
+            return;
+          }
+
+          setStatus('Ошибка синхронизации');
+        }
+      }
+
       function startAutoRefresh() {
         if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = setInterval(() => {
-          loadAppState(false);
-          loadNewMessages();
-        }, 3500);
+        refreshTimer = setInterval(safeRefresh, 5000);
       }
 
       function stopAutoRefresh() {
@@ -1104,21 +1307,26 @@
         } catch (err) {
           console.error(err);
           clearAuth();
-          authErrorEl.textContent = 'Не удалось войти.';
           showAuthScreen();
+          authErrorEl.textContent = isAuthError(err) ? 'Неверный логин или пароль.' : 'Не удалось войти.';
         } finally {
           loginBtnEl.disabled = false;
         }
       }
 
-      function handleLogout() {
+      function handleLogout(message = '') {
         stopAutoRefresh();
         clearAuth();
         currentUser = null;
         rooms = [];
         currentRoomId = null;
+        hasLoadedRoomsOnce = false;
+        authFailCount = 0;
         resetMessageState();
         passwordInputEl.value = '';
+        updateDocumentTitle();
+        updateNotifyButton();
+        if (message) authErrorEl.textContent = message;
         showAuthScreen();
       }
 
@@ -1126,7 +1334,7 @@
       passwordInputEl.addEventListener('keydown', event => {
         if (event.key === 'Enter') handleLogin();
       });
-      logoutBtnEl.addEventListener('click', handleLogout);
+      logoutBtnEl.addEventListener('click', () => handleLogout());
       roomSearchEl.addEventListener('input', renderRooms);
       sendBtnEl.addEventListener('click', handleSend);
       messageInputEl.addEventListener('focus', () => {
@@ -1141,19 +1349,29 @@
       });
       backBtnEl.addEventListener('click', openRoomsScreen);
 
+      if (notifyBtnEl) {
+        notifyBtnEl.addEventListener('click', requestNotifications);
+      }
+
+      document.addEventListener('click', ensureAudioReady, { once: true });
+      document.addEventListener('touchstart', ensureAudioReady, { once: true });
+      document.addEventListener('visibilitychange', updateDocumentTitle);
+
       loadSavedAuth();
+      updateNotifyButton();
+      updateDocumentTitle();
+
       if (auth && auth.email && auth.password) {
         emailInputEl.value = auth.email;
-        showAppScreen();
         loadAppState(true)
           .then(() => {
+            showAppScreen();
             openRoomsScreen();
             startAutoRefresh();
           })
           .catch(err => {
             console.error(err);
-            handleLogout();
-            authErrorEl.textContent = 'Вход нужно выполнить заново.';
+            handleLogout('Вход нужно выполнить заново.');
           });
       } else {
         showAuthScreen();
