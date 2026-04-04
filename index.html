@@ -320,12 +320,18 @@
 
       .chat-page {
         min-height: 100svh;
+        height: 100svh;
         background: var(--bg);
         display: flex;
         flex-direction: column;
+        overflow: hidden;
       }
 
-      .messages-wrap { flex: 1 1 auto; }
+      .messages-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
 
       .messages {
         padding: 14px 12px 8px;
@@ -588,6 +594,7 @@
       const chatSubtitleEl = document.getElementById('chatSubtitle');
       const chatStatusEl = document.getElementById('chatStatus');
       const messagesEl = document.getElementById('messages');
+      const messagesWrapEl = document.querySelector('.messages-wrap');
       const messageInputEl = document.getElementById('messageInput');
       const sendBtnEl = document.getElementById('sendBtn');
       const backBtnEl = document.getElementById('backBtn');
@@ -1029,7 +1036,8 @@
       }
 
       function scrollPageToBottom() {
-        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+        if (!messagesWrapEl) return;
+        messagesWrapEl.scrollTop = messagesWrapEl.scrollHeight;
       }
 
       function clearCurrentRoomUnreadLocally() {
