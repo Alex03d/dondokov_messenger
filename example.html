@@ -1,0 +1,3065 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>D-Messenger</title>
+    <style>
+      :root {
+        --bg: #eef3f8;
+        --panel: #ffffff;
+        --line: #e6ebf2;
+        --text: #17212b;
+        --muted: #708499;
+        --accent: #3390ec;
+        --accent-soft: #eaf3ff;
+        --green: #dff5dd;
+        --danger: #ef4444;
+        --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      }
+
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+
+      .app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .screen {
+        display: none;
+        height: 100%;
+      }
+
+      .screen.active {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(10px);
+      }
+
+      .topbar-main {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .topbar-title,
+      .chat-title {
+        margin: 0;
+        font-size: 19px;
+        line-height: 1.2;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #appTitle {
+        font-size: 16px;
+        letter-spacing: -0.01em;
+      }
+
+      .topbar-subtitle,
+      .chat-subtitle,
+      .status-label {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.25;
+      }
+
+      .status-label {
+        margin-top: 0;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .ghost-btn,
+      .icon-btn,
+      .back-btn {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--text);
+        border-radius: 999px;
+        min-width: 38px;
+        height: 38px;
+        padding: 0 12px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .back-btn {
+        width: 38px;
+        padding: 0;
+        font-size: 22px;
+        color: var(--accent);
+      }
+
+      .search-wrap {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .search {
+        width: 100%;
+        height: 46px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #f6f8fb;
+        outline: none;
+        font-size: 16px;
+      }
+
+      .search:focus,
+      .composer-input:focus {
+        border-color: var(--accent);
+      }
+
+      .rooms {
+        flex: 1;
+        overflow-y: auto;
+        background: var(--panel);
+      }
+
+      .room-item {
+        display: flex;
+        gap: 12px;
+        padding: 14px;
+        border-bottom: 1px solid #f0f3f7;
+        cursor: pointer;
+      }
+
+      .room-item:active,
+      .room-item.active {
+        background: var(--accent-soft);
+      }
+
+      .avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+      }
+
+      .room-main { flex: 1; min-width: 0; }
+      .room-row-top, .room-row-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .room-name {
+        min-width: 0;
+        font-size: 17px;
+        line-height: 1.2;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .room-time,
+      .history-meta,
+      .message-meta {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .room-preview {
+        min-width: 0;
+        font-size: 14px;
+        line-height: 1.35;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-top: 4px;
+      }
+
+      .room-badge {
+        flex: 0 0 auto;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        padding: 0 7px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .room-empty,
+      .chat-empty,
+      .boot-state {
+        padding: 24px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .chat-page {
+        min-height: 0;
+        flex: 1;
+        background: var(--bg);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .messages-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .messages {
+        min-height: 100%;
+        padding: 14px 12px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background:
+          radial-gradient(circle at top left, rgba(51, 144, 236, 0.06), transparent 240px),
+          radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.05), transparent 260px),
+          var(--bg);
+      }
+
+      .day-divider {
+        align-self: center;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid rgba(0,0,0,0.04);
+        color: var(--muted);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      .history-loader {
+        align-self: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .history-btn {
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.96);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 9px 16px;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: var(--shadow);
+      }
+
+      .history-btn:disabled,
+      .send-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .send-btn.is-busy {
+        transform: scale(0.98);
+      }
+
+      .message-row { display: flex; }
+      .message-row.own { justify-content: flex-end; }
+
+      .message-bubble {
+        max-width: 92%;
+        border-radius: 18px;
+        padding: 10px 12px 8px;
+        box-shadow: var(--shadow);
+        word-break: break-word;
+      }
+
+      .message-row.other .message-bubble {
+        background: #fff;
+        border-top-left-radius: 8px;
+      }
+
+      .message-row.own .message-bubble {
+        background: var(--green);
+        border-top-right-radius: 8px;
+      }
+
+      .message-row.own.pending .message-bubble { opacity: 0.96; }
+      .message-row.own.failed .message-bubble {
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.28), var(--shadow);
+      }
+
+      .pending-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        padding: 0 5px;
+        font-size: 10px;
+        line-height: 1;
+        color: var(--muted);
+        background: rgba(112, 132, 153, 0.12);
+      }
+
+      .pending-chip.is-sending {
+        color: var(--accent);
+        background: rgba(51, 144, 236, 0.12);
+      }
+
+      .pending-chip.is-failed {
+        color: var(--danger);
+        background: rgba(239, 68, 68, 0.12);
+      }
+
+      .message-author {
+        margin-bottom: 4px;
+        color: #4975a2;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .message-text {
+        white-space: pre-wrap;
+        font-size: 15px;
+        line-height: 1.42;
+      }
+
+      .message-meta {
+        margin-top: 6px;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .retry-btn {
+        border: none;
+        background: transparent;
+        color: var(--danger);
+        font-size: 12px;
+        font-weight: 700;
+        padding: 0;
+        line-height: 1;
+      }
+
+      .attachments-stack {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .gallery-grid {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .gallery-grid.one {
+        grid-template-columns: 1fr;
+      }
+
+      .gallery-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.55);
+        min-height: 120px;
+      }
+
+      .gallery-card img {
+        display: block;
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+      }
+
+      .gallery-more {
+        position: absolute;
+        inset: 0;
+        background: rgba(23,33,43,0.42);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .gallery-more-link {
+        position: absolute;
+        inset: 0;
+        background: rgba(23,33,43,0.42);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .gallery-extra {
+        margin-top: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .gallery-extra-label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .gallery-extra-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .gallery-extra-link {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .attachment-loading {
+        margin-top: 8px;
+        border: 1px solid rgba(0,0,0,0.06);
+        background: rgba(255,255,255,0.65);
+        border-radius: 14px;
+        padding: 10px 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .file-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .file-card {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 0 10px;
+        align-items: start;
+        border: 1px solid rgba(0,0,0,0.06);
+        background: rgba(255,255,255,0.65);
+        border-radius: 14px;
+        padding: 10px;
+        overflow: hidden;
+      }
+
+      .file-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: rgba(51,144,236,0.12);
+        color: var(--accent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 800;
+        flex: 0 0 auto;
+        grid-row: span 2;
+      }
+
+      .file-main { min-width: 0; }
+      .file-name {
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.3;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      .file-meta {
+        margin-top: 3px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .file-link {
+        grid-column: 2;
+        justify-self: start;
+        margin-top: 6px;
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+        max-width: 100%;
+        white-space: nowrap;
+      }
+
+      .composer {
+        flex: 0 0 auto;
+        background: rgba(255,255,255,0.98);
+        border-top: 1px solid var(--line);
+        padding: 10px;
+      }
+
+      .composer-previews {
+        display: none;
+        margin-bottom: 8px;
+      }
+
+      .composer-previews.active {
+        display: block;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .preview-card {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f6f8fb;
+        border: 1px solid var(--line);
+        min-height: 84px;
+      }
+
+      .preview-card img {
+        display: block;
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+      }
+
+      .preview-file {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        height: 100px;
+        padding: 10px;
+      }
+
+      .preview-file-name {
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.25;
+        max-height: 3.2em;
+        overflow: hidden;
+      }
+
+      .preview-file-meta {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .preview-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 999px;
+        background: rgba(23,33,43,0.72);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .composer-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .composer-input {
+        flex: 1;
+        min-width: 0;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fff;
+        outline: none;
+        font-size: 15px;
+      }
+
+      .send-btn,
+      .attach-btn {
+        flex: 0 0 auto;
+        width: 48px;
+        height: 48px;
+        border: none;
+        border-radius: 50%;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .attach-btn {
+        background: #8b5cf6;
+      }
+
+      .send-btn {
+        background: var(--accent);
+      }
+
+      #roomsScreen .topbar-actions {
+        gap: 6px;
+      }
+
+      #roomsScreen .topbar-actions .ghost-btn {
+        min-width: 34px;
+        padding: 0 10px;
+      }
+
+      .send-icon,
+      .attach-icon {
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .composer-hint {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .composer-hint strong {
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+
+      .profile-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.32);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        z-index: 120;
+      }
+
+      .profile-card {
+        width: 100%;
+        max-width: 360px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+      }
+
+      .profile-title {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.15;
+        font-weight: 800;
+      }
+
+      .profile-subtitle {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .profile-field {
+        margin-top: 16px;
+      }
+
+      .profile-input {
+        width: 100%;
+        height: 48px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        outline: none;
+        font-size: 16px;
+      }
+
+      .profile-input:focus {
+        border-color: var(--accent);
+      }
+
+      .profile-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .primary-btn {
+        flex: 1;
+        height: 46px;
+        border: none;
+        border-radius: 14px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .secondary-btn {
+        flex: 1;
+        height: 46px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .profile-error {
+        min-height: 20px;
+        margin-top: 10px;
+        color: var(--danger);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .profile-error.is-info {
+        color: var(--muted);
+      }
+
+      .primary-btn.is-busy,
+      .secondary-btn.is-busy {
+        opacity: 0.85;
+        cursor: default;
+      }
+
+      .sidebar-user-link {
+        cursor: pointer;
+      }
+
+
+      .topbar-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .sheet-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 110;
+        background: rgba(238,243,248,0.95);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sheet-panel {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+
+      .sheet-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+      }
+
+      .sheet-search-wrap {
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+        background: #fff;
+      }
+
+      .people-list,
+      .member-list,
+      .candidate-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .person-card,
+      .member-card,
+      .candidate-card,
+      .info-card {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 12px;
+      }
+
+      .person-card,
+      .member-card {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .person-main,
+      .member-main {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .person-name,
+      .member-name,
+      .setting-title {
+        font-size: 15px;
+        font-weight: 800;
+        line-height: 1.25;
+      }
+
+      .person-email,
+      .member-meta,
+      .setting-subtitle,
+      .overlay-note {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .person-actions,
+      .member-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 20px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .inline-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .room-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .form-input,
+      .form-textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        outline: none;
+        padding: 12px 14px;
+        font-size: 15px;
+      }
+
+      .form-input:focus,
+      .form-textarea:focus {
+        border-color: var(--accent);
+      }
+
+      .form-section-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .check-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .check-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 14px;
+        padding: 10px 12px;
+      }
+
+      .check-item input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+      }
+
+      .check-item-main {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .overlay-footer {
+        padding: 12px;
+        border-top: 1px solid var(--line);
+        background: rgba(255,255,255,0.98);
+      }
+
+      .danger-text-btn {
+        border: none;
+        background: transparent;
+        color: var(--danger);
+        font-size: 13px;
+        font-weight: 700;
+        padding: 0;
+      }
+
+      .small-btn {
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 700;
+        padding: 0 12px;
+      }
+
+      .small-btn.primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .ghost-btn.is-busy,
+      .small-btn.is-busy,
+      .primary-btn.is-busy,
+      .secondary-btn.is-busy {
+        opacity: 0.72;
+        cursor: default;
+      }
+
+      .empty-state-card {
+        padding: 18px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .hidden { display: none !important; }
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(238,243,248,0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+
+      .loading-card {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 18px 22px;
+        text-align: center;
+        max-width: 320px;
+      }
+
+      .error-block {
+        padding: 16px;
+        margin: 14px;
+        background: #fff;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        border-radius: 16px;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-card">
+        <div style="font-weight:800; font-size:18px;">D-Messenger</div>
+        <div style="margin-top:8px; color:#708499; font-size:14px;">Запуск интерфейса…</div>
+      </div>
+    </div>
+
+
+    <div id="profileOverlay" class="profile-overlay hidden">
+      <div class="profile-card">
+        <h2 id="profileTitle" class="profile-title">Как вас показывать в чате?</h2>
+        <div id="profileSubtitle" class="profile-subtitle">
+          Введите имя, которое будут видеть другие участники.
+        </div>
+        <div class="profile-field">
+          <input id="profileNameInput" class="profile-input" type="text" maxlength="40" placeholder="Например: Алексей">
+        </div>
+        <div class="profile-actions">
+          <button id="profileCancelBtn" class="secondary-btn hidden" type="button">Позже</button>
+          <button id="profileSaveBtn" class="primary-btn" type="button">Сохранить</button>
+        </div>
+        <div id="profileError" class="profile-error"></div>
+      </div>
+    </div>
+
+
+    <div id="peopleOverlay" class="sheet-overlay hidden">
+      <div class="sheet-panel">
+        <div class="topbar">
+          <button id="peopleBackBtn" class="back-btn" type="button">‹</button>
+          <div class="topbar-main">
+            <div class="topbar-title">Люди</div>
+            <div class="topbar-subtitle">Личные сообщения и каталог участников</div>
+          </div>
+          <button id="syncPeopleBtn" class="ghost-btn" type="button">↻</button>
+        </div>
+        <div class="sheet-search-wrap">
+          <input id="peopleSearch" class="search" type="text" placeholder="Поиск по имени или email">
+        </div>
+        <div id="peopleList" class="sheet-body"></div>
+      </div>
+    </div>
+
+    <div id="createRoomOverlay" class="sheet-overlay hidden">
+      <div class="sheet-panel">
+        <div class="topbar">
+          <button id="createRoomBackBtn" class="back-btn" type="button">‹</button>
+          <div class="topbar-main">
+            <div class="topbar-title">Новая комната</div>
+            <div class="topbar-subtitle">Создай группу и сразу выбери участников</div>
+          </div>
+        </div>
+        <div class="sheet-body">
+          <div class="room-form">
+            <div class="info-card">
+              <div class="form-section-title">Название</div>
+              <input id="createRoomTitleInput" class="form-input" type="text" maxlength="80" placeholder="Например: Семья">
+              <div class="overlay-note">Ты автоматически добавляешься в комнату как владелец.</div>
+            </div>
+            <div class="info-card">
+              <div class="form-section-title">Участники</div>
+              <input id="createRoomSearch" class="form-input" type="text" placeholder="Поиск участников">
+              <div id="createRoomPeopleList" class="check-list" style="margin-top:12px;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="overlay-footer">
+          <div class="profile-actions" style="margin-top:0;">
+            <button id="createRoomCancelBtn" class="secondary-btn" type="button">Отмена</button>
+            <button id="createRoomSaveBtn" class="primary-btn" type="button">Создать комнату</button>
+          </div>
+          <div id="createRoomError" class="profile-error"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="roomInfoOverlay" class="sheet-overlay hidden">
+      <div class="sheet-panel">
+        <div class="topbar">
+          <button id="roomInfoBackBtn" class="back-btn" type="button">‹</button>
+          <div class="topbar-main">
+            <div id="roomInfoTitle" class="topbar-title">Комната</div>
+            <div id="roomInfoSubtitle" class="topbar-subtitle">Участники и настройки</div>
+          </div>
+        </div>
+        <div id="roomInfoBody" class="sheet-body"></div>
+      </div>
+    </div>
+
+    <div id="app" class="app hidden">
+      <section id="roomsScreen" class="screen active">
+        <div class="topbar">
+          <div class="topbar-main">
+            <div id="appTitle" class="topbar-title">Messenger</div>
+            <div id="sidebarUser" class="topbar-subtitle"></div>
+          </div>
+          <div class="topbar-actions">
+            <button id="peopleBtn" class="ghost-btn" type="button">Люди</button>
+            <button id="createRoomBtn" class="ghost-btn" type="button">＋</button>
+            <button id="refreshBtn" class="ghost-btn" type="button">↻</button>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <input id="roomSearch" class="search" type="text" placeholder="Поиск чатов">
+        </div>
+        <div id="rooms" class="rooms"></div>
+      </section>
+
+      <section id="chatScreen" class="screen">
+        <div class="chat-page">
+          <div class="topbar">
+            <button id="backBtn" class="back-btn" type="button">‹</button>
+            <div class="topbar-main">
+              <div id="chatTitle" class="chat-title">Загрузка…</div>
+              <div id="chatSubtitle" class="chat-subtitle">Подключение…</div>
+            </div>
+            <button id="roomInfoBtn" class="ghost-btn" type="button">⋯</button>
+            <div id="chatStatus" class="status-label">Синхронизация…</div>
+          </div>
+
+          <div class="messages-wrap" id="messagesWrap">
+            <div id="messages" class="messages"></div>
+          </div>
+
+          <div class="composer">
+            <div id="composerPreviews" class="composer-previews">
+              <div id="previewGrid" class="preview-grid"></div>
+            </div>
+
+            <div class="composer-row">
+              <button id="attachBtn" class="attach-btn" type="button" aria-label="Добавить файлы">
+                <span class="attach-icon">＋</span>
+              </button>
+              <input id="messageInput" class="composer-input" type="text" autocomplete="off" placeholder="Сообщение">
+              <button id="sendBtn" class="send-btn" type="button" aria-label="Отправить">
+                <span class="send-icon">➤</span>
+              </button>
+            </div>
+
+            <div class="composer-hint">
+              Можно отправлять текст, документы и сразу несколько фотографий.
+            </div>
+
+            <input id="fileInput" class="hidden" type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.7z">
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      let boot = null;
+      let currentUser = null;
+      let rooms = [];
+      let currentRoomId = null;
+      let currentMessages = [];
+      let totalMessagesCount = 0;
+      let hasMoreHistory = false;
+      let oldestLoadedCreatedAt = '';
+      let newestLoadedCreatedAt = '';
+      let isLoadingOlder = false;
+      let isLoadingNew = false;
+      let refreshTimer = null;
+      let pendingRoomReloadTimer = null;
+      let lastRenderSignature = '';
+      let lastRoomsSignature = '';
+      let pendingUploads = [];
+      let sendQueue = [];
+      let isProcessingQueue = false;
+      let peopleDirectory = [];
+      let createRoomSelection = new Set();
+      let roomInfoSelection = new Set();
+      let roomInfoData = null;
+      let audioContextRef = null;
+      let lastSoundAt = 0;
+      let uiBusyCounter = 0;
+      const draftsByClientId = new Map();
+      const imagePreviewCache = new Map();
+      const imagePreviewInflight = new Set();
+      const INLINE_IMAGE_PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120">' +
+        '<rect width="160" height="120" rx="18" fill="#e9eef5"/>' +
+        '<path d="M18 88l30-28 20 18 26-30 48 40H18z" fill="#cdd7e4"/>' +
+        '<circle cx="54" cy="38" r="10" fill="#d8e2ee"/>' +
+        '</svg>'
+      );
+
+      const appEl = document.getElementById('app');
+      const loadingOverlayEl = document.getElementById('loadingOverlay');
+      const profileOverlayEl = document.getElementById('profileOverlay');
+      const profileTitleEl = document.getElementById('profileTitle');
+      const profileSubtitleEl = document.getElementById('profileSubtitle');
+      const profileNameInputEl = document.getElementById('profileNameInput');
+      const profileSaveBtnEl = document.getElementById('profileSaveBtn');
+      const profileCancelBtnEl = document.getElementById('profileCancelBtn');
+      const profileErrorEl = document.getElementById('profileError');
+      const roomsScreenEl = document.getElementById('roomsScreen');
+      const chatScreenEl = document.getElementById('chatScreen');
+      const appTitleEl = document.getElementById('appTitle');
+      const sidebarUserEl = document.getElementById('sidebarUser');
+      const roomSearchEl = document.getElementById('roomSearch');
+      const roomsEl = document.getElementById('rooms');
+      const refreshBtnEl = document.getElementById('refreshBtn');
+      const chatTitleEl = document.getElementById('chatTitle');
+      const chatSubtitleEl = document.getElementById('chatSubtitle');
+      const chatStatusEl = document.getElementById('chatStatus');
+      const backBtnEl = document.getElementById('backBtn');
+      const messagesEl = document.getElementById('messages');
+      const messagesWrapEl = document.getElementById('messagesWrap');
+      const composerPreviewsEl = document.getElementById('composerPreviews');
+      const previewGridEl = document.getElementById('previewGrid');
+      const attachBtnEl = document.getElementById('attachBtn');
+      const fileInputEl = document.getElementById('fileInput');
+      const messageInputEl = document.getElementById('messageInput');
+      const sendBtnEl = document.getElementById('sendBtn');
+      const peopleBtnEl = document.getElementById('peopleBtn');
+      const createRoomBtnEl = document.getElementById('createRoomBtn');
+      const roomInfoBtnEl = document.getElementById('roomInfoBtn');
+      const peopleOverlayEl = document.getElementById('peopleOverlay');
+      const peopleBackBtnEl = document.getElementById('peopleBackBtn');
+      const syncPeopleBtnEl = document.getElementById('syncPeopleBtn');
+      const peopleSearchEl = document.getElementById('peopleSearch');
+      const peopleListEl = document.getElementById('peopleList');
+      const createRoomOverlayEl = document.getElementById('createRoomOverlay');
+      const createRoomBackBtnEl = document.getElementById('createRoomBackBtn');
+      const createRoomCancelBtnEl = document.getElementById('createRoomCancelBtn');
+      const createRoomTitleInputEl = document.getElementById('createRoomTitleInput');
+      const createRoomSearchEl = document.getElementById('createRoomSearch');
+      const createRoomPeopleListEl = document.getElementById('createRoomPeopleList');
+      const createRoomSaveBtnEl = document.getElementById('createRoomSaveBtn');
+      const createRoomErrorEl = document.getElementById('createRoomError');
+      const roomInfoOverlayEl = document.getElementById('roomInfoOverlay');
+      const roomInfoBackBtnEl = document.getElementById('roomInfoBackBtn');
+      const roomInfoTitleEl = document.getElementById('roomInfoTitle');
+      const roomInfoSubtitleEl = document.getElementById('roomInfoSubtitle');
+      const roomInfoBodyEl = document.getElementById('roomInfoBody');
+
+      function gs(functionName, ...args) {
+        return new Promise((resolve, reject) => {
+          const runner = google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(error => {
+              reject(normalizeGoogleError(error));
+            });
+
+          runner[functionName](...args);
+        });
+      }
+
+      function normalizeGoogleError(error) {
+        if (!error) return new Error('Неизвестная ошибка');
+        if (error instanceof Error) return error;
+        if (typeof error === 'string') return new Error(error);
+        if (error.message) return new Error(error.message);
+        return new Error(JSON.stringify(error));
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function isImageFileName(name) {
+        return /\.(apng|avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i.test(String(name || ''));
+      }
+
+      function isImageMimeType(mimeType) {
+        return /^image\//i.test(String(mimeType || ''));
+      }
+
+      function isImageAttachment(item) {
+        return Boolean(item) && (
+          String(item.kind || '') === 'image' ||
+          isImageMimeType(item.mime_type || item.mimeType || '') ||
+          isImageFileName(item.file_name || item.name || '')
+        );
+      }
+
+      function setStatus(text) {
+        chatStatusEl.textContent = text || '';
+      }
+
+      function beginUiBusy(statusText) {
+        uiBusyCounter += 1;
+        if (statusText) setStatus(statusText);
+      }
+
+      function endUiBusy(nextStatusText) {
+        uiBusyCounter = Math.max(0, uiBusyCounter - 1);
+        if (uiBusyCounter === 0) {
+          setStatus(nextStatusText || (isProcessingQueue && sendQueue.length ? ('Отправка… ' + sendQueue.length + ' в очереди') : 'Подключено'));
+        }
+      }
+
+      function setButtonBusy(button, isBusy, busyLabel) {
+        if (!button) return;
+        if (!button.dataset.defaultLabel) {
+          button.dataset.defaultLabel = button.textContent;
+        }
+        button.disabled = !!isBusy;
+        button.classList.toggle('is-busy', !!isBusy);
+        if (isBusy && typeof busyLabel === 'string') {
+          button.textContent = busyLabel;
+        } else if (!isBusy) {
+          button.textContent = button.dataset.defaultLabel || button.textContent;
+        }
+      }
+
+      function ensureAudioContext() {
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtor) return null;
+        if (!audioContextRef) {
+          try {
+            audioContextRef = new AudioCtor();
+          } catch (error) {
+            return null;
+          }
+        }
+        if (audioContextRef && audioContextRef.state === 'suspended') {
+          audioContextRef.resume().catch(() => {});
+        }
+        return audioContextRef;
+      }
+
+      function unlockIncomingSound() {
+        ensureAudioContext();
+      }
+
+      function playIncomingSound() {
+        if (document.visibilityState && document.visibilityState !== 'visible') return;
+        const now = Date.now();
+        if (now - lastSoundAt < 900) return;
+
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+
+        try {
+          const oscillator = ctx.createOscillator();
+          const gain = ctx.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
+          oscillator.connect(gain);
+          gain.connect(ctx.destination);
+          oscillator.start(ctx.currentTime);
+          oscillator.stop(ctx.currentTime + 0.16);
+          lastSoundAt = now;
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function formatRelativeLastSeen(isoString) {
+        if (!isoString) return 'Был(а) недавно';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return 'Был(а) недавно';
+        const diffMs = Date.now() - date.getTime();
+        const diffMin = Math.round(diffMs / 60000);
+        if (diffMin <= 1) return 'Онлайн недавно';
+        if (diffMin < 60) return 'Был(а) ' + diffMin + ' мин назад';
+        const diffHr = Math.round(diffMin / 60);
+        if (diffHr < 24) return 'Был(а) ' + diffHr + ' ч назад';
+        return 'Был(а) ' + date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      }
+
+      function showPeopleLoading(message) {
+        peopleListEl.innerHTML = '<div class="empty-state-card">' + escapeHtml(message || 'Загружаем людей…') + '</div>';
+      }
+
+      function showCreateRoomLoading(message) {
+        createRoomPeopleListEl.innerHTML = '<div class="empty-state-card">' + escapeHtml(message || 'Загружаем участников…') + '</div>';
+      }
+
+      function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms || 0))));
+      }
+
+      function snapshotRoomSyncState(room) {
+        if (!room) return null;
+        return {
+          room_id: String(room.room_id || ''),
+          last_message_at: String(room.last_message_at || ''),
+          preview_text: String(room.preview_text || ''),
+          unread_count: Number(room.unread_count || 0)
+        };
+      }
+
+      function shouldForceCurrentRoomReload(previousRoom, nextRoom) {
+        if (!previousRoom || !nextRoom) return false;
+        if (String(previousRoom.room_id || '') !== String(nextRoom.room_id || '')) return false;
+        return String(previousRoom.last_message_at || '') !== String(nextRoom.last_message_at || '') ||
+          String(previousRoom.preview_text || '') !== String(nextRoom.preview_text || '') ||
+          Number(previousRoom.unread_count || 0) !== Number(nextRoom.unread_count || 0);
+      }
+
+      async function reloadCurrentRoomSnapshot(forceScroll) {
+        if (!currentRoomId) return;
+        const limit = Math.max((boot && boot.page_size) || 20, currentMessages.length + 12);
+        const page = await gs('getMessagesPage', currentRoomId, limit, '');
+        currentMessages = page.items || [];
+        totalMessagesCount = page.total_count || currentMessages.length;
+        syncMessagePointers();
+        renderMessages(Boolean(forceScroll));
+        if (forceScroll) {
+          scrollPageToBottomSoon();
+        }
+      }
+
+      async function waitForRoomReady(roomId, infoEl, pendingText) {
+        const targetRoomId = String(roomId || '').trim();
+        if (!targetRoomId) return false;
+
+        const startedAt = Date.now();
+        let attempt = 0;
+        while (Date.now() - startedAt < 12000) {
+          attempt += 1;
+          await loadAppState(false);
+          if (rooms.some(room => String(room.room_id || '') === targetRoomId)) {
+            return true;
+          }
+          if (infoEl) {
+            infoEl.textContent = pendingText || 'Подготавливаем чат…';
+            infoEl.classList.add('is-info');
+          }
+          await sleep(Math.min(850, 250 + attempt * 90));
+        }
+        return rooms.some(room => String(room.room_id || '') === targetRoomId);
+      }
+
+      function renderPersonActions(person) {
+        if (!person || person.is_me) {
+          return '<span class="tag">Это вы</span>';
+        }
+        const label = person.direct_room_id ? 'Открыть чат' : 'Написать';
+        return '<button class="small-btn primary" type="button" data-start-dm="' + escapeHtml(person.email) + '">' + label + '</button>';
+      }
+
+      function showErrorScreen(message) {
+        loadingOverlayEl.classList.add('hidden');
+        appEl.classList.remove('hidden');
+        roomsEl.innerHTML = '<div class="error-block">' + escapeHtml(message) + '</div>';
+      }
+
+      function showApp() {
+        loadingOverlayEl.classList.add('hidden');
+        appEl.classList.remove('hidden');
+      }
+
+      function formatBytes(bytes) {
+        const value = Number(bytes || 0);
+        if (value < 1024) return value + ' B';
+        if (value < 1024 * 1024) return (value / 1024).toFixed(1) + ' KB';
+        return (value / (1024 * 1024)).toFixed(1) + ' MB';
+      }
+
+      function sameDay(a, b) {
+        return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+      }
+
+      function formatRoomTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        const now = new Date();
+        if (sameDay(now, date)) {
+          return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      }
+
+      function formatMessageTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function formatDayLabel(isoString) {
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        if (sameDay(date, today)) return 'Сегодня';
+        if (sameDay(date, yesterday)) return 'Вчера';
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      }
+
+      function openRoomsScreen() {
+        chatScreenEl.classList.remove('active');
+        roomsScreenEl.classList.add('active');
+      }
+
+      function openChatScreen() {
+        roomsScreenEl.classList.remove('active');
+        chatScreenEl.classList.add('active');
+        setTimeout(scrollPageToBottomSoon, 0);
+      }
+
+      function getCurrentRoom() {
+        return rooms.find(room => room.room_id === currentRoomId) || null;
+      }
+
+      function getFilteredRooms() {
+        const query = roomSearchEl.value.trim().toLowerCase();
+        if (!query) return rooms;
+        return rooms.filter(room => {
+          return String(room.title || '').toLowerCase().includes(query) ||
+            String(room.preview_text || '').toLowerCase().includes(query);
+        });
+      }
+
+      function updateSidebarUser() {
+        const email = currentUser && currentUser.email ? currentUser.email : '';
+        const name = currentUser && currentUser.name ? currentUser.name : '';
+        sidebarUserEl.textContent = email ? ((name ? name + ' · ' : '') + email) : '';
+        sidebarUserEl.classList.toggle('sidebar-user-link', Boolean(email));
+        sidebarUserEl.title = email ? 'Нажми, чтобы изменить имя' : '';
+      }
+
+
+      function updateProfileActions() {
+        const value = String(profileNameInputEl.value || '').trim();
+        if (profileSaveBtnEl.dataset.loading === '1') return;
+        profileSaveBtnEl.disabled = value.length < 2;
+      }
+
+      function setProfileSavingState(isSaving, message) {
+        if (!profileSaveBtnEl.dataset.defaultLabel) {
+          profileSaveBtnEl.dataset.defaultLabel = profileSaveBtnEl.textContent.trim() || 'Сохранить';
+        }
+        if (!profileCancelBtnEl.dataset.defaultLabel) {
+          profileCancelBtnEl.dataset.defaultLabel = profileCancelBtnEl.textContent.trim() || 'Позже';
+        }
+
+        profileSaveBtnEl.dataset.loading = isSaving ? '1' : '0';
+        profileSaveBtnEl.disabled = Boolean(isSaving);
+        profileCancelBtnEl.disabled = Boolean(isSaving);
+        profileNameInputEl.disabled = Boolean(isSaving);
+        profileSaveBtnEl.classList.toggle('is-busy', Boolean(isSaving));
+        profileCancelBtnEl.classList.toggle('is-busy', Boolean(isSaving));
+        profileSaveBtnEl.textContent = isSaving ? 'Сохраняем…' : profileSaveBtnEl.dataset.defaultLabel;
+
+        if (message) {
+          profileErrorEl.textContent = message;
+          profileErrorEl.classList.add('is-info');
+        } else if (profileErrorEl.classList.contains('is-info')) {
+          profileErrorEl.textContent = '';
+          profileErrorEl.classList.remove('is-info');
+        }
+      }
+
+      function openProfileOverlay(forceEdit) {
+        const mustChooseName = currentUser && currentUser.needs_display_name;
+        profileTitleEl.textContent = mustChooseName
+          ? 'Как вас показывать в чате?'
+          : 'Изменить имя';
+        profileSubtitleEl.textContent = mustChooseName
+          ? 'Введите имя, которое будут видеть другие участники.'
+          : 'Это имя будет видно другим участникам во всех сообщениях.';
+        profileCancelBtnEl.classList.toggle('hidden', mustChooseName && !forceEdit);
+        profileErrorEl.textContent = '';
+        profileErrorEl.classList.remove('is-info');
+        profileNameInputEl.disabled = false;
+        profileNameInputEl.value = currentUser && currentUser.needs_display_name ? '' : (currentUser && currentUser.name ? currentUser.name : '');
+        profileOverlayEl.classList.remove('hidden');
+        setProfileSavingState(false, '');
+        updateProfileActions();
+        setTimeout(() => {
+          profileNameInputEl.focus();
+          profileNameInputEl.select();
+        }, 0);
+      }
+
+      function closeProfileOverlay() {
+        if (currentUser && currentUser.needs_display_name) return;
+        if (profileSaveBtnEl.dataset.loading === '1') return;
+        profileOverlayEl.classList.add('hidden');
+        profileErrorEl.textContent = '';
+        profileErrorEl.classList.remove('is-info');
+      }
+
+      async function saveProfileName() {
+        const value = String(profileNameInputEl.value || '').trim().replace(/\s+/g, ' ');
+        if (value.length < 2) {
+          profileErrorEl.textContent = 'Введите имя минимум из 2 символов.';
+          profileErrorEl.classList.remove('is-info');
+          return;
+        }
+
+        setProfileSavingState(true, 'Сохраняем имя…');
+
+        try {
+          const result = await gs('saveCurrentUserDisplayName', value);
+          currentUser = result.current_user || currentUser || {};
+          if (boot) {
+            boot.current_user = currentUser;
+          }
+          updateSidebarUser();
+          setStatus('Имя сохранено');
+          setProfileSavingState(true, 'Обновляем интерфейс…');
+          await safeRefresh();
+          profileOverlayEl.classList.add('hidden');
+          profileErrorEl.textContent = '';
+          profileErrorEl.classList.remove('is-info');
+        } catch (error) {
+          console.error(error);
+          profileErrorEl.textContent = error.message || 'Не удалось сохранить имя.';
+          profileErrorEl.classList.remove('is-info');
+        } finally {
+          setProfileSavingState(false, '');
+          updateProfileActions();
+        }
+      }
+
+      function updateHeader() {
+        const room = getCurrentRoom();
+        if (!room) {
+          chatTitleEl.textContent = 'Нет комнат';
+          chatSubtitleEl.textContent = 'Добавь строки в листы rooms и room_members';
+          return;
+        }
+
+        chatTitleEl.textContent = room.title;
+        if (totalMessagesCount) {
+          const totalLabel = totalMessagesCount > currentMessages.length
+            ? 'Сообщений: ' + currentMessages.length + ' из ' + totalMessagesCount
+            : 'Сообщений: ' + totalMessagesCount;
+          chatSubtitleEl.textContent = room.unread_count
+            ? totalLabel + ' · новых: ' + room.unread_count
+            : totalLabel;
+        } else {
+          chatSubtitleEl.textContent = room.unread_count ? 'Новых сообщений: ' + room.unread_count : 'Сообщений пока нет';
+        }
+      }
+
+      function renderRooms() {
+        const list = getFilteredRooms();
+
+        const signature = JSON.stringify(list.map(room => [
+          room.room_id,
+          room.unread_count,
+          room.last_message_at,
+          room.preview_text
+        ]));
+
+        if (signature === lastRoomsSignature) return;
+        lastRoomsSignature = signature;
+
+        if (!list.length) {
+          roomsEl.innerHTML = '<div class="room-empty">Чаты не найдены</div>';
+          return;
+        }
+
+        roomsEl.innerHTML = list.map(room => `
+          <div class="room-item ${room.room_id === currentRoomId ? 'active' : ''}" data-room-id="${escapeHtml(room.room_id)}">
+            <div class="avatar" style="background:${escapeHtml(room.avatar_color || '#5b8def')}">${escapeHtml(room.avatar_label || '#')}</div>
+            <div class="room-main">
+              <div class="room-row-top">
+                <div class="room-name">${escapeHtml(room.title)}</div>
+                <div class="room-time">${escapeHtml(formatRoomTime(room.last_message_at))}</div>
+              </div>
+              <div class="room-row-bottom">
+                <div class="room-preview">${escapeHtml(room.preview_text || 'Пока нет сообщений')}</div>
+                ${room.unread_count ? `<div class="room-badge">${room.unread_count > 99 ? '99+' : room.unread_count}</div>` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        roomsEl.querySelectorAll('.room-item').forEach(node => {
+          node.addEventListener('click', () => switchRoom(node.getAttribute('data-room-id')));
+        });
+      }
+
+      function getMessageKey(message) {
+        if (message.client_id) return 'client|' + message.client_id;
+        if (message.id) return 'id|' + message.id;
+        return [
+          message.sender || '',
+          message.created_at || '',
+          message.text || ''
+        ].join('|');
+      }
+
+      function mergeMessageArrays(base, incoming) {
+        const map = new Map();
+        [...base, ...incoming].forEach(message => {
+          map.set(getMessageKey(message), message);
+        });
+
+        return Array.from(map.values()).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      }
+
+      function syncMessagePointers() {
+        oldestLoadedCreatedAt = currentMessages.length ? currentMessages[0].created_at : '';
+        newestLoadedCreatedAt = currentMessages.length ? currentMessages[currentMessages.length - 1].created_at : '';
+        hasMoreHistory = totalMessagesCount > currentMessages.length;
+      }
+
+      function generateLocalId(prefix) {
+        return (prefix || 'id') + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      }
+
+      function getMessagePreviewText(text, attachments) {
+        const trimmed = String(text || '').trim();
+        if (trimmed) return trimmed;
+
+        const list = Array.isArray(attachments) ? attachments : [];
+        const images = list.filter(item => isImageAttachment(item)).length;
+        const files = list.filter(item => !isImageAttachment(item)).length;
+
+        if (images && files) return '📷 ' + images + ' · 📎 ' + files;
+        if (images) return images === 1 ? '📷 Фотография' : '📷 ' + images + ' фото';
+        if (files) return files === 1 ? '📎 Документ' : '📎 ' + files + ' файлов';
+        return 'Новое сообщение';
+      }
+
+      function promoteRoomToTop(roomId) {
+        const index = rooms.findIndex(room => room.room_id === roomId);
+        if (index <= 0) return;
+        const [room] = rooms.splice(index, 1);
+        rooms.unshift(room);
+      }
+
+      function updateRoomPreviewLocally(roomId, text, attachments, createdAt) {
+        const previewText = getMessagePreviewText(text, attachments);
+        rooms = rooms.map(room => {
+          if (room.room_id !== roomId) return room;
+          return {
+            ...room,
+            preview_text: previewText,
+            last_message_at: createdAt || new Date().toISOString(),
+            unread_count: 0
+          };
+        });
+        promoteRoomToTop(roomId);
+        lastRoomsSignature = '';
+        renderRooms();
+        updateHeader();
+      }
+
+      function updateComposerActions() {
+        const hasDraft = Boolean(String(messageInputEl.value || '').trim()) || pendingUploads.length > 0;
+        sendBtnEl.disabled = !hasDraft;
+        sendBtnEl.classList.toggle('is-busy', isProcessingQueue);
+        sendBtnEl.title = isProcessingQueue && sendQueue.length
+          ? 'Сообщения уходят по очереди (' + sendQueue.length + ' в очереди)'
+          : 'Отправить';
+
+        attachBtnEl.disabled = false;
+
+        if (isProcessingQueue && sendQueue.length) {
+          setStatus('Отправка… ' + sendQueue.length + ' в очереди');
+        }
+      }
+
+      function detachPendingUploads() {
+        const selected = pendingUploads.slice();
+        pendingUploads = [];
+        renderPendingUploads();
+        fileInputEl.value = '';
+        updateComposerActions();
+        return selected;
+      }
+
+      function cleanupUploadUrls(uploadItems) {
+        (uploadItems || []).forEach(item => {
+          if (item && item.previewUrl) {
+            try { URL.revokeObjectURL(item.previewUrl); } catch (error) {}
+          }
+        });
+      }
+
+      function saveDraftForRetry(message, selectedUploads) {
+        draftsByClientId.set(message.client_id, {
+          roomId: message.room_id,
+          text: message.text || '',
+          selectedUploads: selectedUploads || [],
+          optimisticCreatedAt: message.created_at
+        });
+      }
+
+      function dropDraftForRetry(clientId) {
+        const stored = draftsByClientId.get(clientId);
+        if (stored) {
+          cleanupUploadUrls(stored.selectedUploads);
+          draftsByClientId.delete(clientId);
+        }
+      }
+
+      function getRenderableImageSrc(image) {
+        const cached = image && image.id ? imagePreviewCache.get(String(image.id)) : '';
+        if (cached) return cached;
+
+        const directSrc = String(image && (image.thumb_url || image.view_url || image.download_url) || '');
+        if (directSrc) {
+          return directSrc;
+        }
+
+        return INLINE_IMAGE_PLACEHOLDER;
+      }
+
+      function applyInlinePreviewsToDom(previews) {
+        (previews || []).forEach(item => {
+          if (!item || !item.id || !item.data_url) return;
+          const nodes = messagesEl.querySelectorAll('img[data-attachment-id="' + CSS.escape(String(item.id)) + '"]');
+          nodes.forEach(node => {
+            node.src = item.data_url;
+          });
+        });
+      }
+
+      function requestMissingImagePreviews() {
+        const missingIds = [];
+        currentMessages.forEach(message => {
+          (message.attachments || []).forEach(attachment => {
+            if (!attachment || !isImageAttachment(attachment)) return;
+            const id = String(attachment.id || '').trim();
+            if (!id) return;
+            if (imagePreviewCache.has(id) || imagePreviewInflight.has(id)) return;
+
+            const alreadyLocal = /^(blob:|data:)/i.test(String(attachment.thumb_url || attachment.view_url || attachment.download_url || ''));
+            if (alreadyLocal) return;
+
+            missingIds.push(id);
+          });
+        });
+
+        const batch = Array.from(new Set(missingIds)).slice(0, 8);
+        if (!batch.length) return;
+
+        batch.forEach(id => imagePreviewInflight.add(id));
+
+        gs('getInlineImagePreviews', batch)
+          .then(previews => {
+            (previews || []).forEach(item => {
+              if (item && item.id && item.data_url) {
+                imagePreviewCache.set(String(item.id), item.data_url);
+              }
+            });
+            applyInlinePreviewsToDom(previews || []);
+          })
+          .catch(error => {
+            console.error(error);
+          })
+          .finally(() => {
+            batch.forEach(id => imagePreviewInflight.delete(id));
+          });
+      }
+
+      function renderMessageAttachments(attachments, message) {
+        const list = Array.isArray(attachments) ? attachments : [];
+        const needsLoadingState = !list.length && message && !message.text && (String(message.attachment_group_id || '').trim() || String(message.message_type || '') !== 'text');
+        if (!list.length && !needsLoadingState) return '';
+
+        const images = list.filter(item => isImageAttachment(item));
+        const files = list.filter(item => !isImageAttachment(item));
+        let html = '<div class="attachments-stack">';
+
+        if (images.length) {
+          const galleryClass = images.length === 1 ? 'gallery-grid one' : 'gallery-grid';
+          const previewImages = images.slice(0, 4);
+          html += `<div class="${galleryClass}">`;
+          previewImages.forEach((image, index) => {
+            const moreCount = images.length > 4 && index === 3 ? images.length - 4 : 0;
+            const firstHiddenImage = moreCount ? images[4] : null;
+            html += `
+              <div class="gallery-card">
+                <a href="${escapeHtml(image.view_url || image.download_url || '#')}" target="_blank" rel="noopener noreferrer">
+                  <img data-attachment-id="${escapeHtml(image.id || '')}" src="${escapeHtml(getRenderableImageSrc(image))}" data-fallback-src="${escapeHtml(image.view_url || image.download_url || '')}" onerror="if(this.dataset.fallbackSrc && !this.dataset.failed){this.dataset.failed='1'; this.src=this.dataset.fallbackSrc;} else { this.onerror=null; }" alt="${escapeHtml(image.file_name || 'image')}">
+                </a>
+                ${moreCount && firstHiddenImage ? `<a class="gallery-more-link" href="${escapeHtml(firstHiddenImage.view_url || firstHiddenImage.download_url || '#')}" target="_blank" rel="noopener noreferrer">+${moreCount}</a>` : ''}
+              </div>
+            `;
+          });
+          html += '</div>';
+
+          if (images.length > 4) {
+            const hiddenImages = images.slice(4);
+            html += '<div class="gallery-extra">';
+            html += `<div class="gallery-extra-label">Остальные фото: ${hiddenImages.length}</div>`;
+            html += '<div class="gallery-extra-links">';
+            hiddenImages.forEach((image, index) => {
+              html += `<a class="gallery-extra-link" href="${escapeHtml(image.view_url || image.download_url || '#')}" target="_blank" rel="noopener noreferrer">Фото ${index + 5}</a>`;
+            });
+            html += '</div></div>';
+          }
+        }
+
+        if (files.length) {
+          html += '<div class="file-list">';
+          files.forEach(file => {
+            html += `
+              <div class="file-card">
+                <div class="file-icon">📄</div>
+                <div class="file-main">
+                  <div class="file-name">${escapeHtml(file.file_name || 'Файл')}</div>
+                  <div class="file-meta">${escapeHtml(formatBytes(file.size_bytes || 0))}</div>
+                </div>
+                <a class="file-link" href="${escapeHtml(file.view_url || file.download_url || '#')}" target="_blank" rel="noopener noreferrer">Открыть</a>
+              </div>
+            `;
+          });
+          html += '</div>';
+        }
+
+        if (needsLoadingState) {
+          html += '<div class="attachment-loading">Вложения загружаются… Если галерея не появилась сразу, она подтянется автоматически.</div>';
+        }
+
+        html += '</div>';
+        return html;
+      }
+
+      function renderMessages(forceScroll) {
+        const signature = JSON.stringify({
+          ids: currentMessages.map(msg => [
+            msg.id, msg.client_id, msg.text, msg.created_at,
+            msg.pending, msg.failed,
+            (msg.attachments || []).map(att => [att.id, att.file_name, att.kind, att.view_url])
+          ]),
+          hasMoreHistory,
+          totalMessagesCount,
+          isLoadingOlder
+        });
+
+        if (!forceScroll && signature === lastRenderSignature) return;
+        lastRenderSignature = signature;
+
+        if (!currentMessages.length) {
+          messagesEl.innerHTML = '<div class="chat-empty">В этом чате пока нет сообщений</div>';
+          updateHeader();
+          return;
+        }
+
+        let html = '';
+        let previousDayLabel = '';
+        let previousSender = '';
+
+        if (hasMoreHistory || totalMessagesCount) {
+          const counterLabel = totalMessagesCount > currentMessages.length
+            ? 'Показано ' + currentMessages.length + ' из ' + totalMessagesCount
+            : 'Сообщений: ' + totalMessagesCount;
+
+          html += `
+            <div class="history-loader">
+              ${hasMoreHistory ? `
+                <button id="loadOlderBtn" class="history-btn" ${isLoadingOlder ? 'disabled' : ''}>
+                  ${isLoadingOlder ? 'Загрузка...' : 'Загрузить ещё'}
+                </button>
+              ` : ''}
+              <div class="history-meta">${escapeHtml(counterLabel)}</div>
+            </div>
+          `;
+        }
+
+        currentMessages.forEach(msg => {
+          const own = currentUser && msg.sender === currentUser.email;
+          const dayLabel = formatDayLabel(msg.created_at);
+          const showAuthor = !own && previousSender !== msg.sender;
+          const stateClass = msg.failed ? 'failed' : (msg.pending ? 'pending' : '');
+
+          if (dayLabel !== previousDayLabel) {
+            html += `<div class="day-divider">${escapeHtml(dayLabel)}</div>`;
+            previousDayLabel = dayLabel;
+            previousSender = '';
+          }
+
+          html += `
+            <div class="message-row ${own ? 'own' : 'other'} ${stateClass}">
+              <div class="message-bubble">
+                ${showAuthor ? `<div class="message-author">${escapeHtml(msg.sender_name || msg.sender)}</div>` : ''}
+                ${msg.text ? `<div class="message-text">${escapeHtml(msg.text)}</div>` : ''}
+                ${renderMessageAttachments(msg.attachments, msg)}
+                <div class="message-meta">
+                  ${msg.failed
+                    ? `<span class="pending-chip is-failed">!</span><span>Не отправлено</span><button class="retry-btn" type="button" data-retry-client-id="${escapeHtml(msg.client_id || '')}">Повторить</button>`
+                    : msg.pending
+                      ? `<span class="pending-chip ${msg.queue_state === 'sending' ? 'is-sending' : ''}" title="${escapeHtml(msg.queue_state === 'sending' ? 'Отправляется' : 'В очереди')}">${msg.queue_state === 'sending' ? '↗' : '◔'}</span><span>${escapeHtml(formatMessageTime(msg.created_at))}</span>`
+                      : `${msg.edited_at ? '<span>изменено</span>' : ''}<span>${escapeHtml(formatMessageTime(msg.created_at))}</span>`}
+                </div>
+              </div>
+            </div>
+          `;
+
+          previousSender = msg.sender;
+        });
+
+        messagesEl.innerHTML = html;
+        updateHeader();
+        requestMissingImagePreviews();
+
+        const loadOlderBtn = document.getElementById('loadOlderBtn');
+        if (loadOlderBtn) loadOlderBtn.addEventListener('click', loadOlderMessages);
+
+        if (forceScroll) {
+          scrollPageToBottomSoon();
+        }
+      }
+
+      function scrollPageToBottom() {
+        messagesWrapEl.scrollTop = messagesWrapEl.scrollHeight;
+      }
+
+      function scrollPageToBottomSoon() {
+        requestAnimationFrame(() => {
+          scrollPageToBottom();
+          setTimeout(scrollPageToBottom, 80);
+          setTimeout(scrollPageToBottom, 220);
+        });
+      }
+
+      function messageNeedsAttachmentRefresh(message) {
+        if (!message) return false;
+        const hasAttachmentIntent = Boolean(String(message.attachment_group_id || '').trim()) || String(message.message_type || '') !== 'text';
+        return hasAttachmentIntent && !String(message.text || '').trim() && (!Array.isArray(message.attachments) || !message.attachments.length);
+      }
+
+      function scheduleRoomReloadForAttachments() {
+        if (pendingRoomReloadTimer || !currentRoomId) return;
+        pendingRoomReloadTimer = setTimeout(async () => {
+          pendingRoomReloadTimer = null;
+          try {
+            const limit = Math.max((boot && boot.page_size) || 20, currentMessages.length + 6);
+            const page = await gs('getMessagesPage', currentRoomId, limit, '');
+            currentMessages = page.items || [];
+            totalMessagesCount = page.total_count || currentMessages.length;
+            syncMessagePointers();
+            renderMessages(true);
+          } catch (error) {
+            console.error(error);
+          }
+        }, 1200);
+      }
+
+      function clearCurrentRoomUnreadLocally() {
+        rooms = rooms.map(room => room.room_id !== currentRoomId ? room : { ...room, unread_count: 0 });
+        lastRoomsSignature = '';
+        renderRooms();
+        updateHeader();
+      }
+
+      async function markRoomAsReadIfNeeded() {
+        const room = getCurrentRoom();
+        if (!room || !room.unread_count) return;
+        try {
+          await gs('markRoomAsRead', currentRoomId);
+          clearCurrentRoomUnreadLocally();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      async function markRoomAsReadDirect() {
+        if (!currentRoomId) return;
+        try {
+          await gs('markRoomAsRead', currentRoomId);
+          clearCurrentRoomUnreadLocally();
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function resetMessageState() {
+        currentMessages = [];
+        totalMessagesCount = 0;
+        hasMoreHistory = false;
+        oldestLoadedCreatedAt = '';
+        newestLoadedCreatedAt = '';
+        isLoadingOlder = false;
+        isLoadingNew = false;
+        lastRenderSignature = '';
+      }
+
+      async function loadInitialMessages(forceScroll = true) {
+        if (!currentRoomId) return;
+        setStatus('Загрузка истории…');
+
+        const result = await gs('getMessagesPage', currentRoomId, boot.page_size, '');
+        const page = result || {};
+        currentMessages = page.items || [];
+        totalMessagesCount = page.total_count || currentMessages.length;
+        syncMessagePointers();
+        renderMessages(forceScroll);
+        if (forceScroll) {
+          scrollPageToBottomSoon();
+        }
+        setStatus('Подключено');
+        await markRoomAsReadIfNeeded();
+      }
+
+      async function loadOlderMessages() {
+        if (!currentRoomId || !hasMoreHistory || isLoadingOlder || !oldestLoadedCreatedAt) return;
+
+        isLoadingOlder = true;
+        renderMessages(false);
+
+        try {
+          const result = await gs('getMessagesPage', currentRoomId, boot.page_size, oldestLoadedCreatedAt);
+          const page = result || {};
+          const olderItems = page.items || [];
+          currentMessages = mergeMessageArrays(olderItems, currentMessages);
+          totalMessagesCount = page.total_count || totalMessagesCount;
+          syncMessagePointers();
+        } finally {
+          isLoadingOlder = false;
+          renderMessages(false);
+        }
+      }
+
+      async function loadNewMessages() {
+        if (!currentRoomId || !newestLoadedCreatedAt || isLoadingNew) return;
+
+        isLoadingNew = true;
+        try {
+          const result = await gs('getNewMessages', currentRoomId, newestLoadedCreatedAt);
+          const incoming = (result && result.items) || [];
+          const previousLength = currentMessages.length;
+
+          if (incoming.length) {
+            currentMessages = mergeMessageArrays(currentMessages, incoming);
+            const addedCount = currentMessages.length - previousLength;
+            if (addedCount > 0) {
+              totalMessagesCount += addedCount;
+              syncMessagePointers();
+
+              const incomingFromOthers = incoming.filter(msg => !currentUser || msg.sender !== currentUser.email);
+              renderMessages(incomingFromOthers.length > 0);
+
+              if (incomingFromOthers.length) {
+                playIncomingSound();
+                await markRoomAsReadDirect();
+                scrollPageToBottomSoon();
+              }
+
+              if (incoming.some(messageNeedsAttachmentRefresh)) {
+                scheduleRoomReloadForAttachments();
+              }
+            }
+          }
+
+          setStatus('Подключено');
+        } catch (error) {
+          console.error(error);
+          setStatus('Ошибка синхронизации');
+        } finally {
+          isLoadingNew = false;
+        }
+      }
+
+      function applyAppState(state, forceMessagesReload) {
+        currentUser = state.current_user || currentUser;
+        const previousRoomId = currentRoomId;
+        const previousRooms = Array.isArray(rooms) ? rooms.slice() : [];
+        rooms = state.rooms || [];
+
+        if (previousRooms.length) {
+          const previousUnread = previousRooms.reduce((acc, room) => {
+            acc[String(room.room_id || '')] = Number(room.unread_count || 0);
+            return acc;
+          }, {});
+          const hasOtherRoomIncoming = rooms.some(room => {
+            const roomId = String(room.room_id || '');
+            if (!roomId || roomId === currentRoomId) return false;
+            const previousCount = Number(previousUnread[roomId] || 0);
+            const nextCount = Number(room.unread_count || 0);
+            return nextCount > previousCount;
+          });
+          if (hasOtherRoomIncoming) {
+            playIncomingSound();
+          }
+        }
+
+        updateSidebarUser();
+        lastRoomsSignature = '';
+
+        if (!rooms.length) {
+          currentRoomId = null;
+          resetMessageState();
+          renderRooms();
+          messagesEl.innerHTML = '<div class="chat-empty">Нет доступных комнат</div>';
+          updateHeader();
+          setStatus('Нет данных');
+          return;
+        }
+
+        if (!currentRoomId || !rooms.some(room => room.room_id === currentRoomId)) {
+          currentRoomId = previousRoomId && rooms.some(room => room.room_id === previousRoomId)
+            ? previousRoomId
+            : rooms[0].room_id;
+          forceMessagesReload = true;
+        }
+
+        renderRooms();
+        updateHeader();
+
+        if (forceMessagesReload) {
+          resetMessageState();
+          loadInitialMessages(true).catch(error => {
+            console.error(error);
+            setStatus('Ошибка загрузки сообщений');
+          });
+        }
+      }
+
+      async function loadAppState(forceMessagesReload) {
+        const result = await gs('getAppState');
+        applyAppState(result, forceMessagesReload);
+      }
+
+      function switchRoom(roomId) {
+        if (!roomId) return;
+
+        if (roomId === currentRoomId) {
+          openChatScreen();
+          scrollPageToBottomSoon();
+          markRoomAsReadIfNeeded();
+          return;
+        }
+
+        currentRoomId = roomId;
+        openChatScreen();
+        resetMessageState();
+        updateHeader();
+        renderRooms();
+        messagesEl.innerHTML = '<div class="chat-empty">Загрузка сообщений…</div>';
+        loadInitialMessages(true).catch(error => {
+          console.error(error);
+          setStatus('Ошибка загрузки сообщений');
+        });
+      }
+
+      function buildOptimisticAttachmentPreview(item) {
+        return {
+          id: item.local_id,
+          kind: item.kind,
+          file_name: item.name,
+          mime_type: item.mimeType,
+          size_bytes: item.size,
+          view_url: item.previewUrl || '',
+          thumb_url: item.previewUrl || '',
+          download_url: ''
+        };
+      }
+
+      function createOptimisticMessage(text, attachments) {
+        const clientId = generateLocalId('client-local');
+        return {
+          id: '',
+          client_id: clientId,
+          room_id: currentRoomId,
+          sender: currentUser.email,
+          sender_name: currentUser.name || currentUser.email,
+          text: text,
+          created_at: new Date().toISOString(),
+          edited_at: '',
+          pending: true,
+          failed: false,
+          queue_state: 'queued',
+          attachments: (attachments || []).map(buildOptimisticAttachmentPreview)
+        };
+      }
+
+      function updateOptimisticMessage(clientId, patch) {
+        currentMessages = currentMessages.map(message => {
+          if (message.client_id !== clientId) return message;
+          return { ...message, ...patch };
+        });
+        syncMessagePointers();
+        renderMessages(true);
+      }
+
+      function replaceOptimisticMessage(clientId, nextMessage) {
+        let replaced = false;
+        currentMessages = currentMessages.map(message => {
+          if (message.client_id !== clientId) return message;
+          replaced = true;
+          return { ...nextMessage, pending: false, failed: false };
+        });
+
+        if (!replaced) {
+          currentMessages = mergeMessageArrays(currentMessages, [{ ...nextMessage, pending: false, failed: false }]);
+          totalMessagesCount += 1;
+        }
+
+        syncMessagePointers();
+        renderMessages(true);
+      }
+
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = String(reader.result || '');
+            const commaIndex = result.indexOf(',');
+            resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+          };
+          reader.onerror = () => reject(new Error('Не удалось прочитать файл ' + file.name));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function buildFilesPayload(selectedItems) {
+        const payload = [];
+        for (const item of selectedItems) {
+          const base64 = await fileToBase64(item.file);
+          payload.push({
+            name: item.name,
+            mimeType: item.mimeType,
+            size: item.size,
+            base64: base64
+          });
+        }
+        return payload;
+      }
+
+      function clearPendingUploads() {
+        cleanupUploadUrls(pendingUploads);
+        pendingUploads = [];
+        renderPendingUploads();
+        fileInputEl.value = '';
+        updateComposerActions();
+      }
+
+      function renderPendingUploads() {
+        if (!pendingUploads.length) {
+          composerPreviewsEl.classList.remove('active');
+          previewGridEl.innerHTML = '';
+          return;
+        }
+
+        composerPreviewsEl.classList.add('active');
+        previewGridEl.innerHTML = pendingUploads.map(item => `
+          <div class="preview-card">
+            ${item.kind === 'image'
+              ? `<img src="${escapeHtml(item.previewUrl || '')}" alt="${escapeHtml(item.name)}">`
+              : `<div class="preview-file">
+                   <div class="preview-file-name">${escapeHtml(item.name)}</div>
+                   <div class="preview-file-meta">${escapeHtml(formatBytes(item.size))}</div>
+                 </div>`
+            }
+            <button class="preview-remove" type="button" data-remove-upload="${escapeHtml(item.local_id)}">×</button>
+          </div>
+        `).join('');
+      }
+
+      function validateSelectedFiles(files) {
+        const selected = Array.from(files || []);
+        if (!selected.length) return [];
+
+        let totalBytes = pendingUploads.reduce((sum, item) => sum + item.size, 0);
+        const nextItems = [];
+
+        selected.forEach(file => {
+          if (file.size > boot.limits.max_file_bytes) {
+            throw new Error('Файл "' + file.name + '" превышает лимит ' + formatBytes(boot.limits.max_file_bytes));
+          }
+          totalBytes += file.size;
+          const imageLike = isImageMimeType(file.type || '') || isImageFileName(file.name || '');
+          nextItems.push({
+            local_id: 'upload-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+            file: file,
+            name: file.name,
+            mimeType: file.type || '',
+            size: file.size,
+            kind: imageLike ? 'image' : 'file',
+            previewUrl: imageLike ? URL.createObjectURL(file) : ''
+          });
+        });
+
+        if (totalBytes > boot.limits.max_total_bytes) {
+          nextItems.forEach(item => item.previewUrl && URL.revokeObjectURL(item.previewUrl));
+          throw new Error('Суммарный размер вложений превышает ' + formatBytes(boot.limits.max_total_bytes));
+        }
+
+        return nextItems;
+      }
+
+      async function processSendQueue() {
+        if (isProcessingQueue) return;
+        isProcessingQueue = true;
+        updateComposerActions();
+
+        while (sendQueue.length) {
+          const job = sendQueue[0];
+          const { clientId, roomId, text, selectedUploads } = job;
+
+          updateOptimisticMessage(clientId, {
+            pending: true,
+            failed: false,
+            queue_state: 'sending'
+          });
+          setStatus('Отправка… ' + sendQueue.length + ' в очереди');
+
+          try {
+            const filesPayload = selectedUploads.length ? await buildFilesPayload(selectedUploads) : [];
+            const result = await gs('sendMessagePayload', roomId, text, filesPayload, clientId);
+
+            if (result && result.message) {
+              replaceOptimisticMessage(clientId, result.message);
+            } else {
+              updateOptimisticMessage(clientId, {
+                pending: false,
+                failed: false,
+                queue_state: ''
+              });
+              await loadInitialMessages(true);
+            }
+
+            dropDraftForRetry(clientId);
+            await loadAppState(false);
+          } catch (error) {
+            console.error(error);
+            updateOptimisticMessage(clientId, {
+              pending: false,
+              failed: true,
+              queue_state: ''
+            });
+            setStatus(error.message || 'Ошибка отправки');
+          } finally {
+            sendQueue.shift();
+            updateComposerActions();
+          }
+        }
+
+        isProcessingQueue = false;
+        updateComposerActions();
+        setStatus('Подключено');
+      }
+
+      async function retryFailedMessage(clientId) {
+        if (!clientId) return;
+        const draft = draftsByClientId.get(clientId);
+        if (!draft) {
+          alert('Для повторной отправки после перезагрузки страницы нужно заново прикрепить файлы.');
+          return;
+        }
+
+        updateOptimisticMessage(clientId, {
+          pending: true,
+          failed: false,
+          queue_state: 'queued',
+          created_at: new Date().toISOString()
+        });
+
+        sendQueue.push({
+          clientId: clientId,
+          roomId: draft.roomId,
+          text: draft.text,
+          selectedUploads: draft.selectedUploads
+        });
+
+        processSendQueue().catch(error => {
+          console.error(error);
+          setStatus('Ошибка отправки');
+        });
+        updateComposerActions();
+      }
+
+      async function handleSend() {
+        if (!currentRoomId) return;
+
+        const text = messageInputEl.value.trim();
+        const selectedUploads = detachPendingUploads();
+
+        if (!text && !selectedUploads.length) return;
+
+        const optimisticMessage = createOptimisticMessage(text, selectedUploads);
+        saveDraftForRetry(optimisticMessage, selectedUploads);
+
+        messageInputEl.value = '';
+        updateComposerActions();
+
+        currentMessages = mergeMessageArrays(currentMessages, [optimisticMessage]);
+        totalMessagesCount += 1;
+        syncMessagePointers();
+        renderMessages(true);
+        updateRoomPreviewLocally(currentRoomId, text, selectedUploads, optimisticMessage.created_at);
+
+        sendQueue.push({
+          clientId: optimisticMessage.client_id,
+          roomId: currentRoomId,
+          text: text,
+          selectedUploads: selectedUploads
+        });
+
+        processSendQueue().catch(error => {
+          console.error(error);
+          setStatus('Ошибка отправки');
+        });
+        updateComposerActions();
+      }
+
+      async function safeRefresh() {
+        const previousCurrentRoom = snapshotRoomSyncState(getCurrentRoom());
+        try {
+          await loadAppState(false);
+          const nextCurrentRoom = snapshotRoomSyncState(getCurrentRoom());
+          if (shouldForceCurrentRoomReload(previousCurrentRoom, nextCurrentRoom)) {
+            await reloadCurrentRoomSnapshot(true);
+            await markRoomAsReadIfNeeded();
+          } else {
+            await loadNewMessages();
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus('Ошибка синхронизации');
+        }
+      }
+
+      function startAutoRefresh() {
+        stopAutoRefresh();
+        refreshTimer = setInterval(safeRefresh, boot.poll_ms || 5000);
+      }
+
+      function stopAutoRefresh() {
+        if (refreshTimer) {
+          clearInterval(refreshTimer);
+          refreshTimer = null;
+        }
+      }
+
+      async function bootstrap() {
+        try {
+          boot = await gs('getClientBoot');
+          currentUser = boot.current_user || null;
+          rooms = boot.rooms || [];
+
+          appTitleEl.textContent = boot.app_title || 'D-Messenger';
+          updateSidebarUser();
+
+          showApp();
+          applyAppState({
+            current_user: currentUser,
+            rooms: rooms
+          }, true);
+          openRoomsScreen();
+          updateComposerActions();
+          startAutoRefresh();
+
+          if (currentUser && currentUser.needs_display_name) {
+            openProfileOverlay(false);
+          }
+        } catch (error) {
+          console.error(error);
+          showErrorScreen(error.message || 'Не удалось запустить интерфейс.');
+        }
+      }
+
+
+      async function openPeopleOverlay(forceReload, triggerButton) {
+        peopleOverlayEl.classList.remove('hidden');
+        if (forceReload) {
+          showPeopleLoading('Обновляем каталог людей…');
+        } else {
+          showPeopleLoading('Загружаем людей…');
+        }
+        beginUiBusy(forceReload ? 'Обновляем каталог людей…' : 'Загружаем людей…');
+        setButtonBusy(triggerButton, true, '…');
+
+        try {
+          if (forceReload) {
+            await gs('syncPeopleDirectory');
+          }
+          peopleDirectory = await gs('getPeopleDirectory');
+          renderPeopleOverlay();
+        } catch (error) {
+          console.error(error);
+          peopleListEl.innerHTML = '<div class="error-block">' + escapeHtml(error.message || 'Не удалось загрузить людей.') + '</div>';
+        } finally {
+          setButtonBusy(triggerButton, false);
+          endUiBusy();
+        }
+      }
+
+      function closePeopleOverlay() {
+        peopleOverlayEl.classList.add('hidden');
+      }
+
+      function renderPeopleOverlay() {
+        const query = String(peopleSearchEl.value || '').trim().toLowerCase();
+        const list = peopleDirectory.filter(person => {
+          if (!query) return true;
+          return String(person.display_name || '').toLowerCase().includes(query) || String(person.email || '').toLowerCase().includes(query);
+        });
+
+        if (!list.length) {
+          peopleListEl.innerHTML = '<div class="empty-state-card">Никого не найдено</div>';
+          return;
+        }
+
+        peopleListEl.innerHTML = '<div class="people-list">' + list.map(person => {
+          const tags = [];
+          if (person.is_me) tags.push('<span class="tag">Вы</span>');
+          else if (person.direct_room_id) tags.push('<span class="tag">Есть чат</span>');
+          if (person.is_collaborator) tags.push('<span class="tag">Доступ к таблице</span>');
+
+          return `
+            <div class="person-card">
+              <div class="avatar" style="background:${escapeHtml(person.avatar_color || '#5b8def')}">${escapeHtml(person.avatar_label || '#')}</div>
+              <div class="person-main">
+                <div class="person-name">${escapeHtml(person.display_name || person.email || 'Пользователь')}</div>
+                <div class="person-email">${escapeHtml(person.email || '')}</div>
+                <div class="overlay-note">${escapeHtml(formatRelativeLastSeen(person.last_seen_at))}</div>
+                ${tags.length ? `<div class="inline-actions">${tags.join('')}</div>` : ''}
+              </div>
+              <div class="person-actions">${renderPersonActions(person)}</div>
+            </div>
+          `;
+        }).join('') + '</div>';
+      }
+
+      async function startDirectMessage(email, triggerButton) {
+        beginUiBusy('Открываем личный чат…');
+        setButtonBusy(triggerButton, true, '…');
+        showPeopleLoading('Подготавливаем личный чат… Это может занять пару секунд.');
+        try {
+          const result = await gs('getOrCreateDirectRoom', email);
+          const roomId = result && result.room_id ? result.room_id : '';
+          const ready = await waitForRoomReady(roomId, null, 'Подготавливаем личный чат…');
+          closePeopleOverlay();
+          if (!ready) {
+            setStatus('Личный чат создан. Обновляем список…');
+            await loadAppState(false);
+          }
+          if (roomId) {
+            switchRoom(roomId);
+          }
+        } catch (error) {
+          console.error(error);
+          alert(error.message || 'Не удалось открыть личный чат.');
+        } finally {
+          setButtonBusy(triggerButton, false);
+          endUiBusy();
+        }
+      }
+
+      async function openCreateRoomOverlay(triggerButton) {
+        createRoomOverlayEl.classList.remove('hidden');
+        createRoomErrorEl.textContent = '';
+        createRoomErrorEl.classList.remove('is-info');
+        createRoomSelection = new Set();
+        createRoomSearchEl.value = '';
+        createRoomTitleInputEl.value = '';
+        showCreateRoomLoading('Загружаем участников…');
+        beginUiBusy('Открываем создание комнаты…');
+        setButtonBusy(triggerButton, true, '…');
+
+        try {
+          if (!peopleDirectory.length) {
+            peopleDirectory = await gs('getPeopleDirectory');
+          }
+          renderCreateRoomPeople();
+        } catch (error) {
+          console.error(error);
+          createRoomPeopleListEl.innerHTML = '<div class="error-block">' + escapeHtml(error.message || 'Не удалось загрузить участников.') + '</div>';
+        } finally {
+          setButtonBusy(triggerButton, false);
+          endUiBusy();
+        }
+      }
+
+      function closeCreateRoomOverlay() {
+        createRoomOverlayEl.classList.add('hidden');
+        createRoomErrorEl.textContent = '';
+        createRoomErrorEl.classList.remove('is-info');
+      }
+
+      function renderCreateRoomPeople() {
+        const query = String(createRoomSearchEl.value || '').trim().toLowerCase();
+        const list = peopleDirectory
+          .filter(person => !person.is_me)
+          .filter(person => {
+            if (!query) return true;
+            return String(person.display_name || '').toLowerCase().includes(query) || String(person.email || '').toLowerCase().includes(query);
+          });
+
+        if (!list.length) {
+          createRoomPeopleListEl.innerHTML = '<div class="empty-state-card">Нет подходящих участников</div>';
+          return;
+        }
+
+        createRoomPeopleListEl.innerHTML = list.map(person => `
+          <label class="check-item">
+            <input type="checkbox" data-create-room-person="${escapeHtml(person.email || '')}" ${createRoomSelection.has(String(person.email || '').toLowerCase()) ? 'checked' : ''}>
+            <div class="check-item-main">
+              <div class="person-name">${escapeHtml(person.display_name || person.email || 'Пользователь')}</div>
+              <div class="person-email">${escapeHtml(person.email || '')}</div>
+            </div>
+          </label>
+        `).join('');
+      }
+
+      async function submitCreateRoom() {
+        const title = String(createRoomTitleInputEl.value || '').trim();
+        if (!title) {
+          createRoomErrorEl.textContent = 'Введите название комнаты.';
+          createRoomErrorEl.classList.remove('is-info');
+          return;
+        }
+
+        beginUiBusy('Создаём комнату…');
+        setButtonBusy(createRoomSaveBtnEl, true, 'Создаём…');
+        setButtonBusy(createRoomCancelBtnEl, true);
+        createRoomErrorEl.textContent = 'Создаём комнату…';
+        createRoomErrorEl.classList.add('is-info');
+
+        try {
+          const result = await gs('createGroupRoom', title, Array.from(createRoomSelection));
+          const roomId = result && result.room_id ? result.room_id : '';
+          createRoomErrorEl.textContent = 'Подготавливаем комнату… При первом открытии это может занять чуть дольше.';
+          createRoomErrorEl.classList.add('is-info');
+          const ready = await waitForRoomReady(roomId, createRoomErrorEl, 'Подготавливаем комнату… При первом открытии это может занять чуть дольше.');
+          closeCreateRoomOverlay();
+          if (!ready) {
+            setStatus('Комната создана. Обновляем список…');
+            await loadAppState(false);
+          }
+          if (roomId) {
+            switchRoom(roomId);
+          }
+        } catch (error) {
+          console.error(error);
+          createRoomErrorEl.textContent = error.message || 'Не удалось создать комнату.';
+          createRoomErrorEl.classList.remove('is-info');
+        } finally {
+          setButtonBusy(createRoomSaveBtnEl, false);
+          setButtonBusy(createRoomCancelBtnEl, false);
+          endUiBusy();
+        }
+      }
+
+      async function openRoomInfoOverlay(triggerButton) {
+        if (!currentRoomId) return;
+        roomInfoOverlayEl.classList.remove('hidden');
+        roomInfoBodyEl.innerHTML = '<div class="empty-state-card">Загружаем настройки комнаты…</div>';
+        roomInfoSelection = new Set();
+        beginUiBusy('Загружаем настройки комнаты…');
+        setButtonBusy(triggerButton, true, '…');
+
+        try {
+          roomInfoData = await gs('getRoomDetails', currentRoomId);
+          renderRoomInfo();
+        } catch (error) {
+          console.error(error);
+          roomInfoBodyEl.innerHTML = '<div class="error-block">' + escapeHtml(error.message || 'Не удалось загрузить комнату.') + '</div>';
+        } finally {
+          setButtonBusy(triggerButton, false);
+          endUiBusy();
+        }
+      }
+
+      function closeRoomInfoOverlay() {
+        roomInfoOverlayEl.classList.add('hidden');
+      }
+
+      function renderRoomInfo() {
+        const room = roomInfoData && roomInfoData.room ? roomInfoData.room : getCurrentRoom();
+        const members = roomInfoData && Array.isArray(roomInfoData.members) ? roomInfoData.members : [];
+        const candidatePeople = roomInfoData && Array.isArray(roomInfoData.candidate_people) ? roomInfoData.candidate_people : [];
+        const canManage = !!(roomInfoData && roomInfoData.can_manage);
+
+        roomInfoTitleEl.textContent = room ? room.title : 'Комната';
+        roomInfoSubtitleEl.textContent = room && room.type === 'direct' ? 'Личный чат' : 'Участники и настройки';
+
+        let html = '';
+
+        html += '<div class="info-card">';
+        html += '<div class="setting-title">Название комнаты</div>';
+        if (canManage && room && room.type !== 'direct') {
+          html += '<div class="inline-actions">';
+          html += '<input id="roomInfoTitleInput" class="form-input" type="text" maxlength="80" value="' + escapeHtml(room.title || '') + '">';
+          html += '<button id="roomInfoRenameBtn" class="small-btn primary" type="button">Сохранить</button>';
+          html += '</div>';
+        } else {
+          html += '<div class="setting-subtitle">' + escapeHtml((room && room.title) || 'Без названия') + '</div>';
+        }
+        html += '</div>';
+
+        html += '<div class="info-card">';
+        html += '<div class="setting-title">Участники</div>';
+        if (members.length) {
+          html += '<div class="member-list" style="margin-top:12px;">';
+          members.forEach(member => {
+            html += '<div class="member-card">';
+            html += '<div class="avatar" style="background:' + escapeHtml(member.avatar_color || '#5b8def') + '">' + escapeHtml(member.avatar_label || '#') + '</div>';
+            html += '<div class="member-main">';
+            html += '<div class="member-name">' + escapeHtml(member.display_name || member.email || 'Участник') + '</div>';
+            html += '<div class="member-meta">' + escapeHtml(member.email || '') + '</div>';
+            html += '<div class="inline-actions"><span class="tag">' + escapeHtml(member.role === 'owner' ? 'Владелец' : 'Участник') + '</span></div>';
+            html += '</div>';
+            if (canManage && currentUser && member.email !== currentUser.email) {
+              html += '<div class="member-actions"><button class="small-btn" type="button" data-remove-member="' + escapeHtml(member.email || '') + '">Убрать</button></div>';
+            }
+            html += '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div class="empty-state-card">Участников пока нет</div>';
+        }
+        html += '</div>';
+
+        if (canManage && room && room.type !== 'direct') {
+          html += '<div class="info-card">';
+          html += '<div class="setting-title">Добавить участников</div>';
+          if (candidatePeople.length) {
+            html += '<div class="check-list" style="margin-top:12px;">';
+            candidatePeople.forEach(person => {
+              html += '<label class="check-item">';
+              html += '<input type="checkbox" data-room-info-person="' + escapeHtml(person.email || '') + '" ' + (roomInfoSelection.has(String(person.email || '').toLowerCase()) ? 'checked' : '') + '>';
+              html += '<div class="check-item-main">';
+              html += '<div class="person-name">' + escapeHtml(person.display_name || person.email || 'Пользователь') + '</div>';
+              html += '<div class="person-email">' + escapeHtml(person.email || '') + '</div>';
+              html += '</div>';
+              html += '</label>';
+            });
+            html += '</div>';
+            html += '<div class="inline-actions"><button id="roomInfoAddBtn" class="small-btn primary" type="button">Добавить выбранных</button></div>';
+          } else {
+            html += '<div class="empty-state-card">Некого добавлять — все доступные люди уже в комнате.</div>';
+          }
+          html += '</div>';
+        }
+
+        roomInfoBodyEl.innerHTML = html;
+      }
+
+      peopleBtnEl.addEventListener('click', () => {
+        openPeopleOverlay(false, peopleBtnEl);
+      });
+
+      createRoomBtnEl.addEventListener('click', () => {
+        openCreateRoomOverlay(createRoomBtnEl);
+      });
+
+      roomInfoBtnEl.addEventListener('click', () => {
+        openRoomInfoOverlay(roomInfoBtnEl);
+      });
+
+      peopleBackBtnEl.addEventListener('click', closePeopleOverlay);
+      syncPeopleBtnEl.addEventListener('click', () => openPeopleOverlay(true, syncPeopleBtnEl));
+      peopleSearchEl.addEventListener('input', renderPeopleOverlay);
+      peopleListEl.addEventListener('click', event => {
+        const btn = event.target.closest('[data-start-dm]');
+        if (!btn) return;
+        startDirectMessage(btn.getAttribute('data-start-dm'), btn);
+      });
+
+      createRoomBackBtnEl.addEventListener('click', closeCreateRoomOverlay);
+      createRoomCancelBtnEl.addEventListener('click', closeCreateRoomOverlay);
+      createRoomSearchEl.addEventListener('input', renderCreateRoomPeople);
+      createRoomPeopleListEl.addEventListener('change', event => {
+        const input = event.target.closest('[data-create-room-person]');
+        if (!input) return;
+        const email = String(input.getAttribute('data-create-room-person') || '').toLowerCase();
+        if (input.checked) createRoomSelection.add(email);
+        else createRoomSelection.delete(email);
+      });
+      createRoomSaveBtnEl.addEventListener('click', submitCreateRoom);
+      createRoomTitleInputEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitCreateRoom();
+        }
+      });
+
+      roomInfoBackBtnEl.addEventListener('click', closeRoomInfoOverlay);
+      roomInfoBodyEl.addEventListener('click', async event => {
+        const removeBtn = event.target.closest('[data-remove-member]');
+        if (removeBtn) {
+          const email = removeBtn.getAttribute('data-remove-member');
+          beginUiBusy('Удаляем участника…');
+          setButtonBusy(removeBtn, true, '…');
+          try {
+            roomInfoData = await gs('removeRoomMember', currentRoomId, email);
+            await loadAppState(false);
+            renderRoomInfo();
+          } catch (error) {
+            alert(error.message || 'Не удалось удалить участника.');
+          } finally {
+            setButtonBusy(removeBtn, false);
+            endUiBusy();
+          }
+          return;
+        }
+
+        const renameBtn = event.target.closest('#roomInfoRenameBtn');
+        if (renameBtn) {
+          const input = document.getElementById('roomInfoTitleInput');
+          beginUiBusy('Сохраняем название комнаты…');
+          setButtonBusy(renameBtn, true, 'Сохраняем…');
+          try {
+            roomInfoData = await gs('renameRoom', currentRoomId, input ? input.value : '');
+            await loadAppState(false);
+            renderRoomInfo();
+          } catch (error) {
+            alert(error.message || 'Не удалось переименовать комнату.');
+          } finally {
+            setButtonBusy(renameBtn, false);
+            endUiBusy();
+          }
+          return;
+        }
+
+        const addBtn = event.target.closest('#roomInfoAddBtn');
+        if (addBtn) {
+          beginUiBusy('Добавляем участников…');
+          setButtonBusy(addBtn, true, 'Добавляем…');
+          try {
+            roomInfoData = await gs('addRoomMembers', currentRoomId, Array.from(roomInfoSelection));
+            roomInfoSelection = new Set();
+            await loadAppState(false);
+            renderRoomInfo();
+          } catch (error) {
+            alert(error.message || 'Не удалось добавить участников.');
+          } finally {
+            setButtonBusy(addBtn, false);
+            endUiBusy();
+          }
+        }
+      });
+      roomInfoBodyEl.addEventListener('change', event => {
+        const input = event.target.closest('[data-room-info-person]');
+        if (!input) return;
+        const email = String(input.getAttribute('data-room-info-person') || '').toLowerCase();
+        if (input.checked) roomInfoSelection.add(email);
+        else roomInfoSelection.delete(email);
+      });
+
+      refreshBtnEl.addEventListener('click', async () => {
+        beginUiBusy('Обновляем…');
+        setButtonBusy(refreshBtnEl, true, '…');
+        try {
+          await safeRefresh();
+        } finally {
+          setButtonBusy(refreshBtnEl, false);
+          endUiBusy();
+        }
+      });
+
+      roomSearchEl.addEventListener('input', () => {
+        lastRoomsSignature = '';
+        renderRooms();
+      });
+
+      sidebarUserEl.addEventListener('click', () => {
+        if (!currentUser || !currentUser.email) return;
+        openProfileOverlay(true);
+      });
+
+      profileNameInputEl.addEventListener('input', updateProfileActions);
+      profileNameInputEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          saveProfileName();
+        }
+        if (event.key === 'Escape') {
+          closeProfileOverlay();
+        }
+      });
+      profileSaveBtnEl.addEventListener('click', saveProfileName);
+      profileCancelBtnEl.addEventListener('click', closeProfileOverlay);
+
+      messageInputEl.addEventListener('input', updateComposerActions);
+
+      backBtnEl.addEventListener('click', openRoomsScreen);
+      attachBtnEl.addEventListener('click', () => fileInputEl.click());
+
+      fileInputEl.addEventListener('change', event => {
+        try {
+          const items = validateSelectedFiles(event.target.files);
+          pendingUploads = pendingUploads.concat(items);
+          renderPendingUploads();
+          updateComposerActions();
+        } catch (error) {
+          alert(error.message || 'Не удалось добавить файлы.');
+        } finally {
+          fileInputEl.value = '';
+        }
+      });
+
+      previewGridEl.addEventListener('click', event => {
+        const removeBtn = event.target.closest('[data-remove-upload]');
+        if (!removeBtn) return;
+        const id = removeBtn.getAttribute('data-remove-upload');
+        const item = pendingUploads.find(x => x.local_id === id);
+        if (item && item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        pendingUploads = pendingUploads.filter(x => x.local_id !== id);
+        renderPendingUploads();
+        updateComposerActions();
+      });
+
+      sendBtnEl.addEventListener('click', handleSend);
+
+      messageInputEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          handleSend();
+        }
+      });
+
+      messagesEl.addEventListener('click', event => {
+        const retryBtn = event.target.closest('[data-retry-client-id]');
+        if (!retryBtn) return;
+
+        const clientId = retryBtn.getAttribute('data-retry-client-id');
+        const failedMessage = currentMessages.find(message => message.client_id === clientId && message.failed);
+        if (!failedMessage) return;
+
+        retryFailedMessage(clientId);
+      });
+
+      messageInputEl.addEventListener('focus', () => {
+        setTimeout(scrollPageToBottom, 150);
+      });
+
+      window.addEventListener('beforeunload', stopAutoRefresh);
+      document.addEventListener('pointerdown', unlockIncomingSound, { passive: true });
+      document.addEventListener('keydown', unlockIncomingSound);
+
+      bootstrap();
+    </script>
+  </body>
+</html>
