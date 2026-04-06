@@ -415,6 +415,49 @@
         line-height: 1.42;
       }
 
+      .attachments-stack {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .gallery-grid {
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .gallery-grid.one {
+        grid-template-columns: 1fr;
+      }
+
+      .gallery-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.55);
+        min-height: 120px;
+      }
+
+      .gallery-card img {
+        display: block;
+        width: 100%;
+        height: 170px;
+        object-fit: cover;
+      }
+
+      .gallery-more {
+        position: absolute;
+        inset: 0;
+        background: rgba(23,33,43,0.42);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 800;
+      }
+
       .message-meta {
         margin-top: 6px;
         display: flex;
@@ -452,6 +495,51 @@
         padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
       }
 
+      .composer-previews {
+        display: none;
+        margin-bottom: 8px;
+      }
+
+      .composer-previews.active {
+        display: block;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      .preview-card {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #f6f8fb;
+        border: 1px solid var(--line);
+        min-height: 84px;
+      }
+
+      .preview-card img {
+        display: block;
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+      }
+
+      .preview-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 999px;
+        background: rgba(23,33,43,0.72);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
       .composer-row {
         display: flex;
         gap: 10px;
@@ -465,17 +553,25 @@
         padding: 0 16px;
       }
 
-      .send-btn {
+      .send-btn,
+      .attach-btn {
         flex: 0 0 auto;
         width: 54px;
         height: 54px;
         border: none;
         border-radius: 50%;
-        background: var(--accent);
         color: #fff;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .send-btn {
+        background: var(--accent);
+      }
+
+      .attach-btn {
+        background: #8b5cf6;
       }
 
       .send-icon {
@@ -541,12 +637,17 @@
             </div>
 
             <div class="composer">
+              <div id="composerPreviews" class="composer-previews">
+                <div id="previewGrid" class="preview-grid"></div>
+              </div>
               <div class="composer-row">
+                <button id="attachBtn" class="attach-btn" type="button" aria-label="Добавить фото">📷</button>
                 <input id="messageInput" class="composer-input" type="text" inputmode="text" autocapitalize="sentences" autocomplete="off" placeholder="Сообщение">
                 <button id="sendBtn" class="send-btn" type="button" aria-label="Отправить">
                   <span class="send-icon">➤</span>
                 </button>
               </div>
+              <input id="fileInput" type="file" multiple accept="image/*" style="display:none">
             </div>
           </div>
         </section>
@@ -575,6 +676,7 @@
       let hasLoadedRoomsOnce = false;
       let audioCtx = null;
       let authFailCount = 0;
+      let pendingUploads = [];
 
       const authScreenEl = document.getElementById('authScreen');
       const appScreenEl = document.getElementById('appScreen');
@@ -597,6 +699,10 @@
       const messagesWrapEl = document.querySelector('.messages-wrap');
       const messageInputEl = document.getElementById('messageInput');
       const sendBtnEl = document.getElementById('sendBtn');
+      const attachBtnEl = document.getElementById('attachBtn');
+      const fileInputEl = document.getElementById('fileInput');
+      const composerPreviewsEl = document.getElementById('composerPreviews');
+      const previewGridEl = document.getElementById('previewGrid');
       const backBtnEl = document.getElementById('backBtn');
 
       function escapeHtml(value) {
@@ -606,6 +712,25 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
+      }
+
+      function formatBytes(bytes) {
+        const value = Number(bytes || 0);
+        if (!value) return '0 Б';
+        const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+        let next = value;
+        let index = 0;
+        while (next >= 1024 && index < units.length - 1) {
+          next /= 1024;
+          index += 1;
+        }
+        return `${next >= 10 || index === 0 ? next.toFixed(0) : next.toFixed(1)} ${units[index]}`;
+      }
+
+      function isImageAttachment(attachment) {
+        if (!attachment) return false;
+        return /^image\//i.test(String(attachment.mime_type || '')) ||
+          /\.(apng|avif|bmp|gif|heic|heif|jpe?g|png|svg|tiff?|webp)$/i.test(String(attachment.file_name || ''));
       }
 
       function saveAuth(nextAuth) {
@@ -957,9 +1082,35 @@
         hasMoreHistory = totalMessagesCount > currentMessages.length;
       }
 
+      function renderMessageAttachments(attachments) {
+        const list = Array.isArray(attachments) ? attachments : [];
+        if (!list.length) return '';
+
+        const images = list.filter(isImageAttachment);
+        if (!images.length) return '';
+
+        const galleryClass = images.length === 1 ? 'gallery-grid one' : 'gallery-grid';
+        const previewImages = images.slice(0, 4);
+        let html = `<div class="attachments-stack"><div class="${galleryClass}">`;
+        previewImages.forEach((image, index) => {
+          const moreCount = images.length > 4 && index === 3 ? images.length - 4 : 0;
+          html += `
+            <a class="gallery-card" href="${escapeHtml(image.view_url || image.download_url || image.thumb_url || '#')}" target="_blank" rel="noopener noreferrer">
+              <img src="${escapeHtml(image.thumb_url || image.view_url || image.download_url || '')}" alt="${escapeHtml(image.file_name || 'image')}">
+              ${moreCount ? `<span class="gallery-more">+${moreCount}</span>` : ''}
+            </a>
+          `;
+        });
+        html += '</div></div>';
+        return html;
+      }
+
       function renderMessages(forceScroll = false) {
         const signature = JSON.stringify({
-          ids: currentMessages.map(msg => [msg.id, msg.client_id, msg.text, msg.created_at, msg.edited_at, msg.pending, msg.failed]),
+          ids: currentMessages.map(msg => [
+            msg.id, msg.client_id, msg.text, msg.created_at, msg.edited_at, msg.pending, msg.failed,
+            (msg.attachments || []).map(att => [att.id, att.file_name, att.mime_type, att.view_url, att.thumb_url])
+          ]),
           hasMoreHistory,
           totalMessagesCount,
           isLoadingOlder
@@ -1011,10 +1162,11 @@
             <div class="message-row ${own ? 'own' : 'other'} ${stateClass}">
               <div class="message-bubble">
                 ${showAuthor ? `<div class="message-author">${escapeHtml(msg.sender_name || msg.sender)}</div>` : ''}
-                <div class="message-text">${escapeHtml(msg.text)}</div>
+                ${msg.text ? `<div class="message-text">${escapeHtml(msg.text)}</div>` : ''}
+                ${renderMessageAttachments(msg.attachments)}
                 <div class="message-meta">
                   ${msg.failed
-                    ? `<span>Не отправлено</span><button class="retry-btn" type="button" data-retry-client-id="${escapeHtml(msg.client_id || '')}">Повторить</button>`
+                    ? `<span>Не отправлено</span>${(msg.attachments && msg.attachments.length) ? '' : `<button class="retry-btn" type="button" data-retry-client-id="${escapeHtml(msg.client_id || '')}">Повторить</button>`}`
                     : msg.pending
                       ? '<span>Отправляется…</span>'
                       : `${msg.edited_at ? '<span>изменено</span>' : ''}<span>${escapeHtml(formatMessageTime(msg.created_at))}</span>`}
@@ -1242,6 +1394,7 @@
           return;
         }
         currentRoomId = roomId;
+        clearPendingUploads();
         openChatScreen();
         resetMessageState();
         updateHeader();
@@ -1254,7 +1407,59 @@
         messageInputEl.value = '';
       }
 
-      function createOptimisticMessage(text, roomId) {
+      function clearPendingUploads() {
+        pendingUploads.forEach(item => {
+          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        });
+        pendingUploads = [];
+        fileInputEl.value = '';
+        renderPendingUploads();
+      }
+
+      function renderPendingUploads() {
+        if (!pendingUploads.length) {
+          composerPreviewsEl.classList.remove('active');
+          previewGridEl.innerHTML = '';
+          return;
+        }
+
+        composerPreviewsEl.classList.add('active');
+        previewGridEl.innerHTML = pendingUploads.map(item => `
+          <div class="preview-card">
+            <img src="${escapeHtml(item.previewUrl)}" alt="${escapeHtml(item.name)}">
+            <button class="preview-remove" type="button" data-remove-upload="${escapeHtml(item.local_id)}">×</button>
+          </div>
+        `).join('');
+      }
+
+      function validateSelectedFiles(fileList) {
+        const selected = Array.from(fileList || []);
+        return selected
+          .filter(file => /^image\//i.test(file.type || ''))
+          .map(file => ({
+            local_id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            file,
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            previewUrl: URL.createObjectURL(file)
+          }));
+      }
+
+      function buildOptimisticAttachmentPreview(item) {
+        return {
+          id: item.local_id,
+          kind: 'image',
+          file_name: item.name,
+          mime_type: item.mimeType,
+          size_bytes: item.size,
+          view_url: item.previewUrl,
+          thumb_url: item.previewUrl,
+          download_url: item.previewUrl
+        };
+      }
+
+      function createOptimisticMessage(text, roomId, attachments = []) {
         const clientId = `client-local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         return {
           id: '',
@@ -1265,6 +1470,7 @@
           text,
           created_at: new Date().toISOString(),
           edited_at: '',
+          attachments: attachments.map(buildOptimisticAttachmentPreview),
           pending: true,
           failed: false
         };
@@ -1301,15 +1507,44 @@
         renderMessages(true);
       }
 
-      async function sendMessageWithOptimistic(message) {
-        if (!message || !message.room_id || !message.text) return;
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = String(reader.result || '');
+            const commaIndex = result.indexOf(',');
+            resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+          };
+          reader.onerror = () => reject(new Error(`Не удалось прочитать файл ${file.name}`));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function buildFilesPayload(selectedItems) {
+        const payload = [];
+        for (const item of selectedItems) {
+          payload.push({
+            name: item.name,
+            mimeType: item.mimeType,
+            size: item.size,
+            base64: await fileToBase64(item.file)
+          });
+        }
+        return payload;
+      }
+
+      async function sendMessageWithOptimistic(message, selectedUploads = []) {
+        if (!message || !message.room_id || (!message.text && !selectedUploads.length)) return;
         sendBtnEl.disabled = true;
         setStatus('Отправка...');
 
         try {
+          const filesPayload = selectedUploads.length ? await buildFilesPayload(selectedUploads) : [];
           const result = await apiPost('sendMessage', {
             roomId: message.room_id,
             text: message.text,
+            files: filesPayload,
+            filesPayload: filesPayload,
             clientId: message.client_id
           });
 
@@ -1334,17 +1569,19 @@
 
       async function handleSend() {
         const text = messageInputEl.value.trim();
-        if (!text || !currentRoomId) return;
+        const uploads = pendingUploads.slice();
+        if ((!text && !uploads.length) || !currentRoomId) return;
 
-        const optimisticMessage = createOptimisticMessage(text, currentRoomId);
+        const optimisticMessage = createOptimisticMessage(text, currentRoomId, uploads);
         clearInput();
+        clearPendingUploads();
 
         currentMessages = mergeMessageArrays(currentMessages, [optimisticMessage]);
         totalMessagesCount += 1;
         syncMessagePointers();
         renderMessages(true);
 
-        await sendMessageWithOptimistic(optimisticMessage);
+        await sendMessageWithOptimistic(optimisticMessage, uploads);
       }
 
       async function safeRefresh() {
@@ -1417,6 +1654,7 @@
         hasLoadedRoomsOnce = false;
         authFailCount = 0;
         resetMessageState();
+        clearPendingUploads();
         passwordInputEl.value = '';
         updateDocumentTitle();
         updateNotifyButton();
@@ -1431,6 +1669,28 @@
       logoutBtnEl.addEventListener('click', () => handleLogout());
       roomSearchEl.addEventListener('input', renderRooms);
       sendBtnEl.addEventListener('click', handleSend);
+      attachBtnEl.addEventListener('click', () => fileInputEl.click());
+      fileInputEl.addEventListener('change', event => {
+        try {
+          const items = validateSelectedFiles(event.target.files);
+          pendingUploads = pendingUploads.concat(items);
+          renderPendingUploads();
+        } catch (err) {
+          console.error(err);
+          alert(err.message || 'Не удалось добавить фото.');
+        } finally {
+          fileInputEl.value = '';
+        }
+      });
+      composerPreviewsEl.addEventListener('click', event => {
+        const removeBtn = event.target.closest('[data-remove-upload]');
+        if (!removeBtn) return;
+        const localId = removeBtn.getAttribute('data-remove-upload');
+        const removed = pendingUploads.find(item => item.local_id === localId);
+        if (removed && removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+        pendingUploads = pendingUploads.filter(item => item.local_id !== localId);
+        renderPendingUploads();
+      });
       messagesEl.addEventListener('click', event => {
         const retryBtn = event.target.closest('[data-retry-client-id]');
         if (!retryBtn) return;
