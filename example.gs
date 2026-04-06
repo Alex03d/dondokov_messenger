@@ -1115,6 +1115,29 @@ function sendMessagePayload(roomId, text, filesPayload, clientId) {
   };
 }
 
+/**
+ * Совместимый вход для WebApp/API-роутера.
+ * Поддерживает:
+ * - sendMessage(roomId, text, files, clientId)
+ * - sendMessage({ roomId, text, files, filesPayload, clientId })
+ * - sendMessage({ room_id, text, attachments, client_id })
+ */
+function sendMessage(roomIdOrPayload, text, files, clientId) {
+  let roomId = roomIdOrPayload;
+  let messageText = text;
+  let filesPayload = files;
+  let optimisticClientId = clientId;
+
+  if (roomIdOrPayload && typeof roomIdOrPayload === 'object' && !Array.isArray(roomIdOrPayload)) {
+    roomId = roomIdOrPayload.roomId || roomIdOrPayload.room_id || '';
+    messageText = roomIdOrPayload.text || '';
+    filesPayload = roomIdOrPayload.filesPayload || roomIdOrPayload.files || roomIdOrPayload.attachments || [];
+    optimisticClientId = roomIdOrPayload.clientId || roomIdOrPayload.client_id || '';
+  }
+
+  return sendMessagePayload(roomId, messageText, filesPayload, optimisticClientId);
+}
+
 function markRoomAsRead(roomId) {
   ensureChatSchema();
 
